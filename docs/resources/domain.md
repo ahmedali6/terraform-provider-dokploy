@@ -18,10 +18,11 @@ description: |-
 ### Optional
 
 - `application_id` (String)
+- `certificate_type` (String) Certificate type: 'none', 'letsencrypt'. Defaults to 'letsencrypt' when https is true.
 - `compose_id` (String)
 - `generate_traefik_me` (Boolean) If true, generates a traefik.me domain for the application.
 - `host` (String)
-- `https` (Boolean)
+- `https` (Boolean) Enable HTTPS for the domain.
 - `path` (String)
 - `port` (Number)
 - `redeploy_on_update` (Boolean) If true, triggers a redeploy of the associated application or compose stack when the domain is created or updated.

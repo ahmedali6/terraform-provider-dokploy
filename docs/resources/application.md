@@ -3,12 +3,12 @@
 page_title: "dokploy_application Resource - dokploy"
 subcategory: ""
 description: |-
-  
+  Manages a Dokploy application.
 ---
 
 # dokploy_application (Resource)
 
-
+Manages a Dokploy application.
 
 
 
@@ -17,36 +17,47 @@ description: |-
 
 ### Required
 
-- `name` (String)
-- `project_id` (String)
+- `name` (String) The name of the application.
+- `project_id` (String) The project ID this application belongs to.
 
 ### Optional
 
-- `auto_deploy` (Boolean)
-- `branch` (String)
-- `build_type` (String)
-- `custom_git_branch` (String)
-- `custom_git_build_path` (String)
-- `custom_git_ssh_key_id` (String)
-- `custom_git_url` (String)
-- `deploy_on_create` (Boolean)
-- `docker_build_stage` (String)
-- `docker_context_path` (String)
-- `dockerfile_path` (String)
-- `enable_submodules` (Boolean)
-- `environment_id` (String)
-- `github_branch` (String)
-- `github_build_path` (String)
-- `github_id` (String)
-- `github_owner` (String)
-- `github_repository` (String)
-- `github_watch_paths` (List of String)
-- `password` (String, Sensitive)
-- `repository_url` (String)
-- `source_type` (String)
-- `trigger_type` (String)
-- `username` (String)
+- `app_name` (String) The app name used for Docker container naming. Auto-generated if not specified.
+- `auto_deploy` (Boolean) Enable automatic deployment on Git push.
+- `branch` (String) Branch to deploy from.
+- `build_args` (String) Build arguments in KEY=VALUE format, one per line.
+- `build_path` (String) Build path within the repository for GitHub source.
+- `build_type` (String) Build type: dockerfile, heroku_buildpacks, paketo_buildpacks, nixpacks, static, or railpack.
+- `command` (String) Custom command to run.
+- `cpu_limit` (Number) CPU limit (in millicores, e.g., 1000 = 1 CPU).
+- `cpu_reservation` (Number) CPU reservation (in millicores).
+- `custom_git_branch` (String) Branch to use for custom Git repository.
+- `custom_git_build_path` (String) Build path within the custom Git repository.
+- `custom_git_ssh_key_id` (String) SSH key ID for accessing the custom Git repository.
+- `custom_git_url` (String) Custom Git repository URL (for source_type 'git').
+- `deploy_on_create` (Boolean) Trigger a deployment after creating the application.
+- `description` (String) A description of the application.
+- `docker_build_stage` (String) Target stage for multi-stage Docker builds.
+- `docker_context_path` (String) Docker build context path.
+- `docker_image` (String) Docker image to use (for source_type 'docker').
+- `dockerfile_path` (String) Path to the Dockerfile.
+- `enable_submodules` (Boolean) Enable Git submodules support.
+- `env` (String) Environment variables in KEY=VALUE format, one per line.
+- `environment_id` (String) The environment ID this application belongs to.
+- `github_id` (String) GitHub App installation ID. Required for GitHub source type.
+- `memory_limit` (Number) Memory limit in bytes.
+- `memory_reservation` (Number) Memory reservation in bytes.
+- `owner` (String) Repository owner/organization for GitHub source.
+- `password` (String, Sensitive) Password for Docker registry authentication.
+- `publish_directory` (String) Publish directory for static builds.
+- `registry_url` (String) Docker registry URL.
+- `replicas` (Number) Number of replicas to run.
+- `repository` (String) Repository name for GitHub source (e.g., 'my-repo').
+- `server_id` (String) Server ID to deploy the application to. If not specified, deploys to the default server.
+- `source_type` (String) The source type for the application: github, gitlab, bitbucket, git, docker, or drop.
+- `trigger_type` (String) Trigger type for deployments: 'push' (default) or 'tag'.
+- `username` (String) Username for Docker registry authentication.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The unique identifier of the application.
