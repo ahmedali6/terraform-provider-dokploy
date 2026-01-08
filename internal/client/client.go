@@ -2190,7 +2190,7 @@ func (c *DokployClient) ListDestinations() ([]Destination, error) {
 	return destinations, nil
 }
 
-// Backup represents a scheduled backup configuration
+// Backup represents a scheduled backup configuration.
 type Backup struct {
 	BackupID        string `json:"backupId"`
 	AppName         string `json:"appName"`
@@ -2351,7 +2351,7 @@ func (c *DokployClient) DeleteBackup(id string) error {
 }
 
 // GetBackupsByDatabaseID retrieves all backups for a specific database
-// by querying the database endpoint which includes backups in its response
+// by querying the database endpoint which includes backups in its response.
 func (c *DokployClient) GetBackupsByDatabaseID(databaseID, databaseType string) ([]Backup, error) {
 	var endpoint string
 	switch databaseType {

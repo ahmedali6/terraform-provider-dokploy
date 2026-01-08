@@ -22,7 +22,7 @@ func TestAccBackupResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup-project", "test-backup-env", "test-backup-db", "test-backup-dest", "test-backup", "0 2 * * *", true, "db-backup"),
+				Config: testAccBackupResourceConfig("test-backup-project", "test-backup-env", "test-backup-db", "test-backup-dest", "0 2 * * *", true, "db-backup"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_backup.test", "schedule", "0 2 * * *"),
 					resource.TestCheckResourceAttr("dokploy_backup.test", "enabled", "true"),
@@ -36,7 +36,7 @@ func TestAccBackupResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config: testAccBackupResourceConfig("test-backup-project", "test-backup-env", "test-backup-db", "test-backup-dest", "test-backup-updated", "0 3 * * *", false, "updated-backup"),
+				Config: testAccBackupResourceConfig("test-backup-project", "test-backup-env", "test-backup-db", "test-backup-dest", "0 3 * * *", false, "updated-backup"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_backup.test", "schedule", "0 3 * * *"),
 					resource.TestCheckResourceAttr("dokploy_backup.test", "enabled", "false"),
@@ -53,7 +53,7 @@ func TestAccBackupResource(t *testing.T) {
 	})
 }
 
-func testAccBackupResourceConfig(projectName, envName, dbName, destName, backupName, schedule string, enabled bool, prefix string) string {
+func testAccBackupResourceConfig(projectName, envName, dbName, destName, schedule string, enabled bool, prefix string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
