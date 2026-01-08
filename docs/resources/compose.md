@@ -242,7 +242,7 @@ resource "dokploy_compose" "server_specific" {
 ### Optional
 
 - `app_name` (String) The app name used for Docker service naming. Auto-generated if not specified.
-- `auto_deploy` (Boolean) Enable automatic deployment on Git push.
+- `auto_deploy` (Boolean) Enable automatic deployment on Git push. Defaults to API default (typically true).
 - `bitbucket_branch` (String) Bitbucket branch to deploy from.
 - `bitbucket_build_path` (String) Build path within the Bitbucket repository.
 - `bitbucket_id` (String) Bitbucket integration ID. Required for Bitbucket source type.
