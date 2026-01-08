@@ -996,51 +996,59 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 	// Docker Swarm fields - parse JSON strings to maps
 	if !plan.HealthCheckSwarm.IsNull() && !plan.HealthCheckSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.HealthCheckSwarm.ValueString()), &m); err == nil {
-			generalApp.HealthCheckSwarm = m
+		if err := json.Unmarshal([]byte(plan.HealthCheckSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for health_check_swarm: %w", err)
 		}
+		generalApp.HealthCheckSwarm = m
 	}
 	if !plan.RestartPolicySwarm.IsNull() && !plan.RestartPolicySwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.RestartPolicySwarm.ValueString()), &m); err == nil {
-			generalApp.RestartPolicySwarm = m
+		if err := json.Unmarshal([]byte(plan.RestartPolicySwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for restart_policy_swarm: %w", err)
 		}
+		generalApp.RestartPolicySwarm = m
 	}
 	if !plan.PlacementSwarm.IsNull() && !plan.PlacementSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.PlacementSwarm.ValueString()), &m); err == nil {
-			generalApp.PlacementSwarm = m
+		if err := json.Unmarshal([]byte(plan.PlacementSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for placement_swarm: %w", err)
 		}
+		generalApp.PlacementSwarm = m
 	}
 	if !plan.UpdateConfigSwarm.IsNull() && !plan.UpdateConfigSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.UpdateConfigSwarm.ValueString()), &m); err == nil {
-			generalApp.UpdateConfigSwarm = m
+		if err := json.Unmarshal([]byte(plan.UpdateConfigSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for update_config_swarm: %w", err)
 		}
+		generalApp.UpdateConfigSwarm = m
 	}
 	if !plan.RollbackConfigSwarm.IsNull() && !plan.RollbackConfigSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.RollbackConfigSwarm.ValueString()), &m); err == nil {
-			generalApp.RollbackConfigSwarm = m
+		if err := json.Unmarshal([]byte(plan.RollbackConfigSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for rollback_config_swarm: %w", err)
 		}
+		generalApp.RollbackConfigSwarm = m
 	}
 	if !plan.ModeSwarm.IsNull() && !plan.ModeSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.ModeSwarm.ValueString()), &m); err == nil {
-			generalApp.ModeSwarm = m
+		if err := json.Unmarshal([]byte(plan.ModeSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for mode_swarm: %w", err)
 		}
+		generalApp.ModeSwarm = m
 	}
 	if !plan.LabelsSwarm.IsNull() && !plan.LabelsSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.LabelsSwarm.ValueString()), &m); err == nil {
-			generalApp.LabelsSwarm = m
+		if err := json.Unmarshal([]byte(plan.LabelsSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for labels_swarm: %w", err)
 		}
+		generalApp.LabelsSwarm = m
 	}
 	if !plan.NetworkSwarm.IsNull() && !plan.NetworkSwarm.IsUnknown() {
 		var arr []map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.NetworkSwarm.ValueString()), &arr); err == nil {
-			generalApp.NetworkSwarm = arr
+		if err := json.Unmarshal([]byte(plan.NetworkSwarm.ValueString()), &arr); err != nil {
+			return fmt.Errorf("invalid JSON for network_swarm: %w", err)
 		}
+		generalApp.NetworkSwarm = arr
 	}
 	if !plan.StopGracePeriodSwarm.IsNull() && !plan.StopGracePeriodSwarm.IsUnknown() {
 		val := plan.StopGracePeriodSwarm.ValueInt64()
@@ -1048,9 +1056,10 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 	}
 	if !plan.EndpointSpecSwarm.IsNull() && !plan.EndpointSpecSwarm.IsUnknown() {
 		var m map[string]interface{}
-		if err := json.Unmarshal([]byte(plan.EndpointSpecSwarm.ValueString()), &m); err == nil {
-			generalApp.EndpointSpecSwarm = m
+		if err := json.Unmarshal([]byte(plan.EndpointSpecSwarm.ValueString()), &m); err != nil {
+			return fmt.Errorf("invalid JSON for endpoint_spec_swarm: %w", err)
 		}
+		generalApp.EndpointSpecSwarm = m
 	}
 
 	_, err := r.client.UpdateApplicationGeneral(generalApp)
@@ -1388,6 +1397,25 @@ func updatePlanFromApplication(plan *ApplicationResourceModel, app *client.Appli
 	if app.PreviewCustomCertResolver != "" {
 		plan.PreviewCustomCertResolver = types.StringValue(app.PreviewCustomCertResolver)
 	}
+	// Parse PreviewLabels from JSON string to types.List
+	if app.PreviewLabels != "" {
+		var previewLabels []string
+		if err := json.Unmarshal([]byte(app.PreviewLabels), &previewLabels); err == nil {
+			if listVal, diag := types.ListValueFrom(context.Background(), types.StringType, previewLabels); !diag.HasError() {
+				plan.PreviewLabels = listVal
+			}
+		}
+	}
+
+	// Parse WatchPaths from JSON string to types.List
+	if app.WatchPaths != "" {
+		var watchPaths []string
+		if err := json.Unmarshal([]byte(app.WatchPaths), &watchPaths); err == nil {
+			if listVal, diag := types.ListValueFrom(context.Background(), types.StringType, watchPaths); !diag.HasError() {
+				plan.WatchPaths = listVal
+			}
+		}
+	}
 
 	// Application status (computed)
 	plan.ApplicationStatus = types.StringValue(app.ApplicationStatus)
@@ -1480,7 +1508,15 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	}
 	state.EnableSubmodules = types.BoolValue(app.EnableSubmodules)
 	state.CleanCache = types.BoolValue(app.CleanCache)
-	// Note: WatchPaths is stored as a JSON string in the API, needs to be parsed for TF list
+	// Parse WatchPaths from JSON string to types.List
+	if app.WatchPaths != "" {
+		var watchPaths []string
+		if err := json.Unmarshal([]byte(app.WatchPaths), &watchPaths); err == nil {
+			if listVal, diags := types.ListValueFrom(context.Background(), types.StringType, watchPaths); !diags.HasError() {
+				state.WatchPaths = listVal
+			}
+		}
+	}
 
 	// GitHub provider fields - populate both legacy and new field names
 	if app.Repository != "" {
@@ -1702,6 +1738,15 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	}
 	if app.PreviewCustomCertResolver != "" {
 		state.PreviewCustomCertResolver = types.StringValue(app.PreviewCustomCertResolver)
+	}
+	// Parse PreviewLabels from JSON string to types.List
+	if app.PreviewLabels != "" {
+		var previewLabels []string
+		if err := json.Unmarshal([]byte(app.PreviewLabels), &previewLabels); err == nil {
+			if listVal, diags := types.ListValueFrom(context.Background(), types.StringType, previewLabels); !diags.HasError() {
+				state.PreviewLabels = listVal
+			}
+		}
 	}
 
 	// Application status (computed)
