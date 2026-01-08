@@ -367,11 +367,12 @@ func (r *DomainResource) ImportState(ctx context.Context, req resource.ImportSta
 
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), domainID)...)
 
-	if parentType == "application" {
+	switch parentType {
+	case "application":
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("application_id"), parentID)...)
-	} else if parentType == "compose" {
+	case "compose":
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("compose_id"), parentID)...)
-	} else {
+	default:
 		resp.Diagnostics.AddError(
 			"Invalid parent type",
 			fmt.Sprintf("Parent type must be 'application' or 'compose'. Got: %s", parentType),
