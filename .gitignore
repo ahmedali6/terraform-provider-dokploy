@@ -42,3 +42,6 @@ sandbox/.terraform.lock.hcl
 sandbox/.terraform/
 
 openapi.json
+
+# Dokploy source code (reference only, not part of provider)
+dokploy/
