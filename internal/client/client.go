@@ -318,6 +318,7 @@ type Application struct {
 	DockerBuildStage  string `json:"dockerBuildStage"`
 	PublishDirectory  string `json:"publishDirectory"`
 	Dockerfile        string `json:"dockerfileContent"` // Raw Dockerfile content for drop source
+	DropBuildPath     string `json:"dropBuildPath"`     // Build path for "drop" source type
 	HerokuVersion     string `json:"herokuVersion"`
 	RailpackVersion   string `json:"railpackVersion"`
 	IsStaticSpa       bool   `json:"isStaticSpa"`
@@ -329,16 +330,27 @@ type Application struct {
 	CreateEnvFile bool   `json:"createEnvFile"`
 
 	// Runtime configuration (application.update)
-	AutoDeploy        bool                   `json:"autoDeploy"`
-	Replicas          int                    `json:"replicas"`
-	MemoryLimit       *int64                 `json:"memoryLimit"`
-	MemoryReservation *int64                 `json:"memoryReservation"`
-	CpuLimit          *int64                 `json:"cpuLimit"`
-	CpuReservation    *int64                 `json:"cpuReservation"`
-	Command           string                 `json:"command"`
-	Args              string                 `json:"args"`
-	EntryPoint        string                 `json:"entrypoint"`
-	HealthCheckSwarm  map[string]interface{} `json:"healthCheckSwarm"`
+	AutoDeploy        bool   `json:"autoDeploy"`
+	Replicas          int    `json:"replicas"`
+	MemoryLimit       *int64 `json:"memoryLimit"`
+	MemoryReservation *int64 `json:"memoryReservation"`
+	CpuLimit          *int64 `json:"cpuLimit"`
+	CpuReservation    *int64 `json:"cpuReservation"`
+	Command           string `json:"command"`
+	Args              string `json:"args"`
+	EntryPoint        string `json:"entrypoint"`
+
+	// Docker Swarm configuration
+	HealthCheckSwarm     map[string]interface{}   `json:"healthCheckSwarm"`
+	RestartPolicySwarm   map[string]interface{}   `json:"restartPolicySwarm"`
+	PlacementSwarm       map[string]interface{}   `json:"placementSwarm"`
+	UpdateConfigSwarm    map[string]interface{}   `json:"updateConfigSwarm"`
+	RollbackConfigSwarm  map[string]interface{}   `json:"rollbackConfigSwarm"`
+	ModeSwarm            map[string]interface{}   `json:"modeSwarm"`
+	LabelsSwarm          map[string]interface{}   `json:"labelsSwarm"`
+	NetworkSwarm         []map[string]interface{} `json:"networkSwarm"`
+	StopGracePeriodSwarm *int64                   `json:"stopGracePeriodSwarm"`
+	EndpointSpecSwarm    map[string]interface{}   `json:"endpointSpecSwarm"`
 
 	// Preview deployments (application.update)
 	IsPreviewDeploymentsActive            bool   `json:"isPreviewDeploymentsActive"`

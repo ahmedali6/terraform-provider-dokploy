@@ -69,11 +69,11 @@ resource "dokploy_application" "api" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  # GitHub settings
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  # GitHub settings (using github_* prefix for consistency with other providers)
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   # Build settings (Nixpacks auto-detects your project type)
   build_type = "nixpacks"
@@ -90,6 +90,11 @@ resource "dokploy_application" "api" {
 }
 ```
 
+~> **Note:** The fields `owner`, `repository`, `branch`, and `build_path` are also available 
+as legacy aliases for `github_owner`, `github_repository`, `github_branch`, and `github_build_path` 
+respectively. The `github_*` prefix is recommended for consistency with other providers 
+(e.g., `gitlab_owner`, `bitbucket_owner`, `gitea_owner`).
+
 ### GitHub Repository with Dockerfile
 
 ```terraform
@@ -98,11 +103,11 @@ resource "dokploy_application" "web" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web-frontend"
-  branch      = "main"
-  build_path  = "apps/web"  # Monorepo path
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web-frontend"
+  github_branch     = "main"
+  github_build_path = "apps/web"  # Monorepo path
   
   # Dockerfile build
   build_type          = "dockerfile"
@@ -221,10 +226,10 @@ resource "dokploy_application" "docs" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "docs"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "docs"
+  github_branch     = "main"
   
   # Static build
   build_type        = "static"
@@ -267,10 +272,10 @@ resource "dokploy_application" "with_previews" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web"
+  github_branch     = "main"
   
   build_type = "nixpacks"
   
@@ -300,10 +305,10 @@ resource "dokploy_application" "with_rollback" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -325,16 +330,118 @@ resource "dokploy_application" "remote_build" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "heavy-build"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "heavy-build"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
   # Remote build configuration
   build_server_id   = dokploy_server.build.id
   build_registry_id = dokploy_registry.internal.id
+  
+  deploy_on_create = true
+}
+```
+
+### Application with Docker Swarm Configuration
+
+Configure advanced Docker Swarm settings using JSON format.
+
+```terraform
+resource "dokploy_application" "swarm_app" {
+  name           = "swarm-configured-app"
+  environment_id = dokploy_environment.production.id
+  source_type    = "docker"
+  docker_image   = "nginx:alpine"
+  
+  replicas = 3
+  
+  # Health check configuration
+  health_check_swarm = jsonencode({
+    Test     = ["CMD", "curl", "-f", "http://localhost/health"]
+    Interval = 30000000000  # 30 seconds in nanoseconds
+    Timeout  = 10000000000  # 10 seconds
+    Retries  = 3
+  })
+  
+  # Restart policy
+  restart_policy_swarm = jsonencode({
+    Condition   = "on-failure"
+    MaxAttempts = 3
+    Delay       = 5000000000  # 5 seconds
+    Window      = 60000000000 # 60 seconds
+  })
+  
+  # Update configuration
+  update_config_swarm = jsonencode({
+    Parallelism   = 1
+    Delay         = 10000000000
+    FailureAction = "rollback"
+    Order         = "start-first"
+  })
+  
+  # Placement constraints
+  placement_swarm = jsonencode({
+    Constraints = ["node.role == worker"]
+  })
+  
+  # Stop grace period (30 seconds)
+  stop_grace_period_swarm = 30000000000
+  
+  deploy_on_create = true
+}
+```
+
+### Application with Watch Paths
+
+Trigger deployments only when specific paths change.
+
+```terraform
+resource "dokploy_application" "monorepo_app" {
+  name           = "monorepo-service"
+  environment_id = dokploy_environment.production.id
+  source_type    = "github"
+  
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "monorepo"
+  github_branch     = "main"
+  github_build_path = "services/api"
+  
+  # Only trigger deployment when these paths change
+  watch_paths = [
+    "services/api/**",
+    "shared/lib/**",
+    "package.json"
+  ]
+  
+  build_type       = "nixpacks"
+  auto_deploy      = true
+  deploy_on_create = true
+}
+```
+
+### Drop Source Deployment (File Upload)
+
+Deploy using raw Dockerfile content for quick prototyping.
+
+```terraform
+resource "dokploy_application" "drop_app" {
+  name           = "quick-deploy"
+  environment_id = dokploy_environment.production.id
+  source_type    = "drop"
+  
+  # Raw Dockerfile content
+  dockerfile = <<-DOCKERFILE
+    FROM nginx:alpine
+    COPY . /usr/share/nginx/html
+    EXPOSE 80
+    CMD ["nginx", "-g", "daemon off;"]
+  DOCKERFILE
+  
+  drop_build_path = "/app"
   
   deploy_on_create = true
 }

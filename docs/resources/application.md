@@ -69,11 +69,11 @@ resource "dokploy_application" "api" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  # GitHub settings
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  # GitHub settings (using github_* prefix for consistency with other providers)
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   # Build settings (Nixpacks auto-detects your project type)
   build_type = "nixpacks"
@@ -90,6 +90,11 @@ resource "dokploy_application" "api" {
 }
 ```
 
+~> **Note:** The fields `owner`, `repository`, `branch`, and `build_path` are also available 
+as legacy aliases for `github_owner`, `github_repository`, `github_branch`, and `github_build_path` 
+respectively. The `github_*` prefix is recommended for consistency with other providers 
+(e.g., `gitlab_owner`, `bitbucket_owner`, `gitea_owner`).
+
 ### GitHub Repository with Dockerfile
 
 ```terraform
@@ -98,11 +103,11 @@ resource "dokploy_application" "web" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web-frontend"
-  branch      = "main"
-  build_path  = "apps/web"  # Monorepo path
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web-frontend"
+  github_branch     = "main"
+  github_build_path = "apps/web"  # Monorepo path
   
   # Dockerfile build
   build_type          = "dockerfile"
@@ -221,10 +226,10 @@ resource "dokploy_application" "docs" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "docs"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "docs"
+  github_branch     = "main"
   
   # Static build
   build_type        = "static"
@@ -267,10 +272,10 @@ resource "dokploy_application" "with_previews" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web"
+  github_branch     = "main"
   
   build_type = "nixpacks"
   
@@ -300,10 +305,10 @@ resource "dokploy_application" "with_rollback" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -325,16 +330,118 @@ resource "dokploy_application" "remote_build" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "heavy-build"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "heavy-build"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
   # Remote build configuration
   build_server_id   = dokploy_server.build.id
   build_registry_id = dokploy_registry.internal.id
+  
+  deploy_on_create = true
+}
+```
+
+### Application with Docker Swarm Configuration
+
+Configure advanced Docker Swarm settings using JSON format.
+
+```terraform
+resource "dokploy_application" "swarm_app" {
+  name           = "swarm-configured-app"
+  environment_id = dokploy_environment.production.id
+  source_type    = "docker"
+  docker_image   = "nginx:alpine"
+  
+  replicas = 3
+  
+  # Health check configuration
+  health_check_swarm = jsonencode({
+    Test     = ["CMD", "curl", "-f", "http://localhost/health"]
+    Interval = 30000000000  # 30 seconds in nanoseconds
+    Timeout  = 10000000000  # 10 seconds
+    Retries  = 3
+  })
+  
+  # Restart policy
+  restart_policy_swarm = jsonencode({
+    Condition   = "on-failure"
+    MaxAttempts = 3
+    Delay       = 5000000000  # 5 seconds
+    Window      = 60000000000 # 60 seconds
+  })
+  
+  # Update configuration
+  update_config_swarm = jsonencode({
+    Parallelism   = 1
+    Delay         = 10000000000
+    FailureAction = "rollback"
+    Order         = "start-first"
+  })
+  
+  # Placement constraints
+  placement_swarm = jsonencode({
+    Constraints = ["node.role == worker"]
+  })
+  
+  # Stop grace period (30 seconds)
+  stop_grace_period_swarm = 30000000000
+  
+  deploy_on_create = true
+}
+```
+
+### Application with Watch Paths
+
+Trigger deployments only when specific paths change.
+
+```terraform
+resource "dokploy_application" "monorepo_app" {
+  name           = "monorepo-service"
+  environment_id = dokploy_environment.production.id
+  source_type    = "github"
+  
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "monorepo"
+  github_branch     = "main"
+  github_build_path = "services/api"
+  
+  # Only trigger deployment when these paths change
+  watch_paths = [
+    "services/api/**",
+    "shared/lib/**",
+    "package.json"
+  ]
+  
+  build_type       = "nixpacks"
+  auto_deploy      = true
+  deploy_on_create = true
+}
+```
+
+### Drop Source Deployment (File Upload)
+
+Deploy using raw Dockerfile content for quick prototyping.
+
+```terraform
+resource "dokploy_application" "drop_app" {
+  name           = "quick-deploy"
+  environment_id = dokploy_environment.production.id
+  source_type    = "drop"
+  
+  # Raw Dockerfile content
+  dockerfile = <<-DOCKERFILE
+    FROM nginx:alpine
+    COPY . /usr/share/nginx/html
+    EXPOSE 80
+    CMD ["nginx", "-g", "daemon off;"]
+  DOCKERFILE
+  
+  drop_build_path = "/app"
   
   deploy_on_create = true
 }
@@ -360,7 +467,7 @@ resource "dokploy_application" "remote_build" {
 - `bitbucket_repository` (String) Bitbucket repository name.
 - `branch` (String) Branch to deploy from (GitHub/GitLab/Bitbucket/Gitea).
 - `build_args` (String) Build arguments in KEY=VALUE format, one per line.
-- `build_path` (String) Build path within the repository for GitHub source.
+- `build_path` (String) Build path within the repository for GitHub source. Prefer 'github_build_path' for consistency.
 - `build_registry_id` (String) Registry ID to push build images to.
 - `build_secrets` (String, Sensitive) Build secrets in KEY=VALUE format, one per line.
 - `build_server_id` (String) Build server ID for remote builds.
@@ -379,16 +486,23 @@ resource "dokploy_application" "remote_build" {
 - `docker_build_stage` (String) Target stage for multi-stage Docker builds.
 - `docker_context_path` (String) Docker build context path.
 - `docker_image` (String) Docker image to use (for source_type 'docker'). Example: 'nginx:alpine'.
+- `dockerfile` (String) Raw Dockerfile content (for 'drop' source type or inline Dockerfile).
 - `dockerfile_path` (String) Path to the Dockerfile (relative to build path).
+- `drop_build_path` (String) Build path for 'drop' source type deployments.
 - `enable_submodules` (Boolean) Enable Git submodules support.
 - `enabled` (Boolean) Whether the application is enabled.
+- `endpoint_spec_swarm` (String) Endpoint specification for Docker Swarm mode (JSON format).
 - `env` (String) Environment variables in KEY=VALUE format, one per line.
 - `gitea_branch` (String) Gitea branch to deploy from.
 - `gitea_build_path` (String) Build path within the Gitea repository.
 - `gitea_id` (String) Gitea integration ID. Required for Gitea source type.
 - `gitea_owner` (String) Gitea repository owner/organization.
 - `gitea_repository` (String) Gitea repository name.
+- `github_branch` (String) Branch to deploy from for GitHub source. Alias for 'branch'.
+- `github_build_path` (String) Build path within the repository for GitHub source. Alias for 'build_path'.
 - `github_id` (String) GitHub App installation ID. Required for GitHub source type.
+- `github_owner` (String) Repository owner/organization for GitHub source. Alias for 'owner'.
+- `github_repository` (String) Repository name for GitHub source (e.g., 'my-repo'). Alias for 'repository'.
 - `gitlab_branch` (String) GitLab branch to deploy from.
 - `gitlab_build_path` (String) Build path within the GitLab repository.
 - `gitlab_id` (String) GitLab integration ID. Required for GitLab source type.
@@ -396,17 +510,25 @@ resource "dokploy_application" "remote_build" {
 - `gitlab_path_namespace` (String) GitLab path namespace (for nested groups).
 - `gitlab_project_id` (Number) GitLab project ID.
 - `gitlab_repository` (String) GitLab repository name.
+- `health_check_swarm` (String) Health check configuration for Docker Swarm mode (JSON format).
 - `heroku_version` (String) Heroku buildpack version (for heroku_buildpacks build type).
 - `is_static_spa` (Boolean) Whether the static build is a Single Page Application.
+- `labels_swarm` (String) Labels for Docker Swarm service (JSON format).
 - `memory_limit` (Number) Memory limit in bytes. Example: 536870912 (512MB).
 - `memory_reservation` (Number) Memory reservation (soft limit) in bytes.
-- `owner` (String) Repository owner/organization for GitHub source.
+- `mode_swarm` (String) Service mode for Docker Swarm: replicated or global (JSON format).
+- `network_swarm` (String) Network configuration for Docker Swarm mode (JSON array format).
+- `owner` (String) Repository owner/organization for GitHub source. Prefer 'github_owner' for consistency.
 - `password` (String, Sensitive) Password for Docker registry authentication.
+- `placement_swarm` (String) Placement constraints for Docker Swarm mode (JSON format).
 - `preview_build_args` (String) Build arguments for preview deployments.
+- `preview_build_secrets` (String, Sensitive) Build secrets for preview deployments in KEY=VALUE format.
 - `preview_certificate_type` (String) Certificate type for preview deployments: letsencrypt, none.
+- `preview_custom_cert_resolver` (String) Custom certificate resolver for preview deployments.
 - `preview_deployments_enabled` (Boolean) Enable preview deployments for pull requests.
 - `preview_env` (String) Environment variables for preview deployments.
 - `preview_https` (Boolean) Enable HTTPS for preview deployments.
+- `preview_labels` (List of String) Labels for preview deployments.
 - `preview_limit` (Number) Maximum number of concurrent preview deployments.
 - `preview_path` (String) Path prefix for preview deployment URLs.
 - `preview_port` (Number) Port for preview deployment containers.
@@ -417,18 +539,24 @@ resource "dokploy_application" "remote_build" {
 - `registry_id` (String) Registry ID from Dokploy registry management.
 - `registry_url` (String) Docker registry URL. Leave empty for Docker Hub.
 - `replicas` (Number) Number of container replicas to run.
-- `repository` (String) Repository name for GitHub source (e.g., 'my-repo').
+- `repository` (String) Repository name for GitHub source (e.g., 'my-repo'). Prefer 'github_repository' for consistency.
+- `restart_policy_swarm` (String) Restart policy configuration for Docker Swarm mode (JSON format).
 - `rollback_active` (Boolean) Enable rollback capability.
+- `rollback_config_swarm` (String) Rollback configuration for Docker Swarm mode (JSON format).
 - `rollback_registry_id` (String) Registry ID to use for rollback images.
 - `server_id` (String) Server ID to deploy the application to. If not specified, deploys to the default server.
 - `source_type` (String) The source type for the application: github, gitlab, bitbucket, gitea, git, docker, or drop.
+- `stop_grace_period_swarm` (Number) Stop grace period in nanoseconds for Docker Swarm mode.
 - `subtitle` (String) Display subtitle for the application in the UI.
 - `title` (String) Display title for the application in the UI.
 - `trigger_type` (String) Trigger type for deployments: 'push' (default) or 'tag'.
+- `update_config_swarm` (String) Update configuration for Docker Swarm mode (JSON format).
 - `username` (String) Username for Docker registry authentication.
+- `watch_paths` (List of String) Paths to watch for changes to trigger deployments.
 
 ### Read-Only
 
+- `application_status` (String) Current status of the application: idle, running, done, error.
 - `id` (String) The unique identifier of the application.
 
 ## Import
