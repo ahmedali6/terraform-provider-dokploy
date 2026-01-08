@@ -2093,3 +2093,99 @@ func (c *DokployClient) ListRegistries() ([]Registry, error) {
 	}
 	return registries, nil
 }
+
+// Destination represents a backup destination (S3, MinIO, etc.)
+type Destination struct {
+	DestinationID   string `json:"destinationId"`
+	Name            string `json:"name"`
+	Provider        string `json:"provider"`
+	AccessKey       string `json:"accessKey"`
+	SecretAccessKey string `json:"secretAccessKey"`
+	Bucket          string `json:"bucket"`
+	Region          string `json:"region"`
+	Endpoint        string `json:"endpoint"`
+	OrganizationID  string `json:"organizationId"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateDestination(dest Destination) (*Destination, error) {
+	payload := map[string]interface{}{
+		"name":            dest.Name,
+		"provider":        dest.Provider,
+		"accessKey":       dest.AccessKey,
+		"secretAccessKey": dest.SecretAccessKey,
+		"bucket":          dest.Bucket,
+		"region":          dest.Region,
+		"endpoint":        dest.Endpoint,
+	}
+
+	resp, err := c.doRequest("POST", "destination.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Destination
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) GetDestination(id string) (*Destination, error) {
+	endpoint := fmt.Sprintf("destination.one?destinationId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Destination
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) UpdateDestination(dest Destination) (*Destination, error) {
+	payload := map[string]interface{}{
+		"destinationId":   dest.DestinationID,
+		"name":            dest.Name,
+		"provider":        dest.Provider,
+		"accessKey":       dest.AccessKey,
+		"secretAccessKey": dest.SecretAccessKey,
+		"bucket":          dest.Bucket,
+		"region":          dest.Region,
+		"endpoint":        dest.Endpoint,
+	}
+
+	resp, err := c.doRequest("POST", "destination.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Destination
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) DeleteDestination(id string) error {
+	payload := map[string]string{
+		"destinationId": id,
+	}
+	_, err := c.doRequest("POST", "destination.remove", payload)
+	return err
+}
+
+func (c *DokployClient) ListDestinations() ([]Destination, error) {
+	resp, err := c.doRequest("GET", "destination.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var destinations []Destination
+	if err := json.Unmarshal(resp, &destinations); err != nil {
+		return nil, err
+	}
+	return destinations, nil
+}

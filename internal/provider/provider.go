@@ -93,6 +93,7 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewPortResource,
 		NewRedirectResource,
 		NewRegistryResource,
+		NewDestinationResource,
 	}
 }
 
