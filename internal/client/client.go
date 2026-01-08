@@ -2310,6 +2310,8 @@ func (c *DokployClient) GetBackup(id string) (*Backup, error) {
 }
 
 func (c *DokployClient) UpdateBackup(backup Backup) (*Backup, error) {
+	// serviceName is required by API schema but can be empty string for database backups.
+	// It's only meaningful for compose backups where it specifies the service to backup.
 	payload := map[string]interface{}{
 		"backupId":      backup.BackupID,
 		"schedule":      backup.Schedule,
@@ -2318,7 +2320,7 @@ func (c *DokployClient) UpdateBackup(backup Backup) (*Backup, error) {
 		"destinationId": backup.DestinationID,
 		"database":      backup.Database,
 		"databaseType":  backup.DatabaseType,
-		"serviceName":   backup.ServiceName, // Required by API even if empty
+		"serviceName":   backup.ServiceName,
 	}
 
 	if backup.KeepLatestCount > 0 {
