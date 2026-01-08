@@ -2189,3 +2189,134 @@ func (c *DokployClient) ListDestinations() ([]Destination, error) {
 	}
 	return destinations, nil
 }
+
+// Backup represents a scheduled backup configuration
+type Backup struct {
+	BackupID        string `json:"backupId"`
+	AppName         string `json:"appName"`
+	Schedule        string `json:"schedule"`
+	Enabled         bool   `json:"enabled"`
+	Database        string `json:"database"`
+	Prefix          string `json:"prefix"`
+	DestinationID   string `json:"destinationId"`
+	KeepLatestCount int    `json:"keepLatestCount"`
+	BackupType      string `json:"backupType"`   // "database" or "compose"
+	DatabaseType    string `json:"databaseType"` // "postgres", "mysql", "mariadb", "mongo"
+	PostgresID      string `json:"postgresId"`
+	MysqlID         string `json:"mysqlId"`
+	MariadbID       string `json:"mariadbId"`
+	MongoID         string `json:"mongoId"`
+	ComposeID       string `json:"composeId"`
+	ServiceName     string `json:"serviceName"`
+}
+
+func (c *DokployClient) CreateBackup(backup Backup) (*Backup, error) {
+	payload := map[string]interface{}{
+		"schedule":      backup.Schedule,
+		"enabled":       backup.Enabled,
+		"prefix":        backup.Prefix,
+		"destinationId": backup.DestinationID,
+		"database":      backup.Database,
+		"backupType":    backup.BackupType,
+		"databaseType":  backup.DatabaseType,
+	}
+
+	if backup.KeepLatestCount > 0 {
+		payload["keepLatestCount"] = backup.KeepLatestCount
+	}
+
+	// Add type-specific database ID
+	if backup.PostgresID != "" {
+		payload["postgresId"] = backup.PostgresID
+	}
+	if backup.MysqlID != "" {
+		payload["mysqlId"] = backup.MysqlID
+	}
+	if backup.MariadbID != "" {
+		payload["mariadbId"] = backup.MariadbID
+	}
+	if backup.MongoID != "" {
+		payload["mongoId"] = backup.MongoID
+	}
+	if backup.ComposeID != "" {
+		payload["composeId"] = backup.ComposeID
+	}
+	if backup.ServiceName != "" {
+		payload["serviceName"] = backup.ServiceName
+	}
+
+	resp, err := c.doRequest("POST", "backup.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle empty response from buggy Dokploy API (backup.create doesn't return the created backup)
+	// WORKAROUND: Query by unique parameters to find the newly created backup
+	// This works because the combination of destinationId + databaseId + databaseType should be unique per backup
+	if len(resp) == 0 {
+		// Sleep briefly to ensure the backup is committed to the database
+		time.Sleep(500 * time.Millisecond)
+
+		// Try to find the backup by querying all backups for this destination/database combo
+		// Since we can't list all backups via API, we'll have to return an error
+		return nil, fmt.Errorf("backup.create returned empty response due to Dokploy API bug (missing return statement in backup router). The backup may have been created in the database, but we cannot retrieve its ID without a 'list all backups' API endpoint. Please upgrade Dokploy to a version with the fix, or manually patch /app/apps/dokploy/server/api/routers/backup.ts line 114 to add 'return backup;'")
+	}
+
+	var result Backup
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal backup response (len=%d): %w. Response: %s", len(resp), err, string(resp))
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) GetBackup(id string) (*Backup, error) {
+	endpoint := fmt.Sprintf("backup.one?backupId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Backup
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) UpdateBackup(backup Backup) (*Backup, error) {
+	payload := map[string]interface{}{
+		"backupId":      backup.BackupID,
+		"schedule":      backup.Schedule,
+		"enabled":       backup.Enabled,
+		"prefix":        backup.Prefix,
+		"destinationId": backup.DestinationID,
+		"database":      backup.Database,
+		"databaseType":  backup.DatabaseType,
+	}
+
+	if backup.KeepLatestCount > 0 {
+		payload["keepLatestCount"] = backup.KeepLatestCount
+	}
+	if backup.ServiceName != "" {
+		payload["serviceName"] = backup.ServiceName
+	}
+
+	resp, err := c.doRequest("POST", "backup.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Backup
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) DeleteBackup(id string) error {
+	payload := map[string]string{
+		"backupId": id,
+	}
+	_, err := c.doRequest("POST", "backup.remove", payload)
+	return err
+}
