@@ -1,0 +1,8 @@
+host         = "https://your-dokploy.com/api"
+api_key      = "your-api-key"
+db_password  = "secure-password"
+github_token = "your-github-token"
+github_owner = "your-github-username"
+custom_git_url = "git@github.com:your-org/your-repo.git"
+github_app_id = "your-github-app-installation-id"
+github_repository = "your-repo-name"

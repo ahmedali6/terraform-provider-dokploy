@@ -1,0 +1,9 @@
+provider_installation {
+  dev_overrides {
+    "ahmedali6/dokploy" = "../"
+  }
+
+  # For all other providers, install them directly from their origin provider
+  # registries as normal.
+  direct {}
+}
