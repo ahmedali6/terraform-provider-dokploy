@@ -52,12 +52,16 @@ type ApplicationResourceModel struct {
 	CleanCache         types.Bool   `tfsdk:"clean_cache"`
 
 	// GitHub provider settings (for source_type = "github")
-	Repository  types.String `tfsdk:"repository"`
-	Branch      types.String `tfsdk:"branch"`
-	Owner       types.String `tfsdk:"owner"`
-	BuildPath   types.String `tfsdk:"build_path"`
-	GithubId    types.String `tfsdk:"github_id"`
-	TriggerType types.String `tfsdk:"trigger_type"`
+	GithubRepository types.String `tfsdk:"github_repository"`
+	GithubOwner      types.String `tfsdk:"github_owner"`
+	GithubBranch     types.String `tfsdk:"github_branch"`
+	GithubBuildPath  types.String `tfsdk:"github_build_path"`
+	Repository       types.String `tfsdk:"repository"`
+	Branch           types.String `tfsdk:"branch"`
+	Owner            types.String `tfsdk:"owner"`
+	BuildPath        types.String `tfsdk:"build_path"`
+	GithubId         types.String `tfsdk:"github_id"`
+	TriggerType      types.String `tfsdk:"trigger_type"`
 
 	// GitLab provider settings (for source_type = "gitlab")
 	GitlabId            types.String `tfsdk:"gitlab_id"`
@@ -257,9 +261,29 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 
 			// GitHub provider settings (source_type = "github")
+			// Note: github_repository, github_owner, github_branch, github_build_path are aliases
+			// for repository, owner, branch, build_path respectively. Use the github_* versions
+			// for consistency with other providers (gitlab_*, bitbucket_*, gitea_*).
+			"github_repository": schema.StringAttribute{
+				Optional:    true,
+				Description: "Repository name for GitHub source (e.g., 'my-repo'). Alias for 'repository'.",
+			},
+			"github_owner": schema.StringAttribute{
+				Optional:    true,
+				Description: "Repository owner/organization for GitHub source. Alias for 'owner'.",
+			},
+			"github_branch": schema.StringAttribute{
+				Optional:    true,
+				Description: "Branch to deploy from for GitHub source. Alias for 'branch'.",
+			},
+			"github_build_path": schema.StringAttribute{
+				Optional:    true,
+				Description: "Build path within the repository for GitHub source. Alias for 'build_path'.",
+			},
+			// Legacy field names (kept for backward compatibility)
 			"repository": schema.StringAttribute{
 				Optional:    true,
-				Description: "Repository name for GitHub source (e.g., 'my-repo').",
+				Description: "Repository name for GitHub source (e.g., 'my-repo'). Prefer 'github_repository' for consistency.",
 			},
 			"branch": schema.StringAttribute{
 				Optional:    true,
@@ -269,11 +293,11 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"owner": schema.StringAttribute{
 				Optional:    true,
-				Description: "Repository owner/organization for GitHub source.",
+				Description: "Repository owner/organization for GitHub source. Prefer 'github_owner' for consistency.",
 			},
 			"build_path": schema.StringAttribute{
 				Optional:    true,
-				Description: "Build path within the repository for GitHub source.",
+				Description: "Build path within the repository for GitHub source. Prefer 'github_build_path' for consistency.",
 			},
 			"github_id": schema.StringAttribute{
 				Optional:    true,
@@ -1049,12 +1073,29 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 
 	switch sourceType {
 	case "github":
+		// Use github_* fields if set, otherwise fall back to legacy fields for backward compatibility
+		repository := plan.GithubRepository.ValueString()
+		if repository == "" {
+			repository = plan.Repository.ValueString()
+		}
+		owner := plan.GithubOwner.ValueString()
+		if owner == "" {
+			owner = plan.Owner.ValueString()
+		}
+		branch := plan.GithubBranch.ValueString()
+		if branch == "" {
+			branch = plan.Branch.ValueString()
+		}
+		buildPath := plan.GithubBuildPath.ValueString()
+		if buildPath == "" {
+			buildPath = plan.BuildPath.ValueString()
+		}
 		input := client.SaveGithubProviderInput{
 			ApplicationID:    appID,
-			Repository:       plan.Repository.ValueString(),
-			Branch:           plan.Branch.ValueString(),
-			Owner:            plan.Owner.ValueString(),
-			BuildPath:        plan.BuildPath.ValueString(),
+			Repository:       repository,
+			Branch:           branch,
+			Owner:            owner,
+			BuildPath:        buildPath,
 			GithubId:         plan.GithubId.ValueString(),
 			EnableSubmodules: plan.EnableSubmodules.ValueBool(),
 			TriggerType:      plan.TriggerType.ValueString(),
@@ -1181,12 +1222,35 @@ func updatePlanFromApplication(plan *ApplicationResourceModel, app *client.Appli
 		plan.DockerContextPath = types.StringValue(app.DockerContextPath)
 	}
 
-	// GitHub fields
-	if plan.Repository.IsUnknown() && app.Repository != "" {
-		plan.Repository = types.StringValue(app.Repository)
+	// GitHub fields - populate both legacy and new field names
+	if app.Repository != "" {
+		if plan.Repository.IsUnknown() {
+			plan.Repository = types.StringValue(app.Repository)
+		}
+		if plan.GithubRepository.IsUnknown() {
+			plan.GithubRepository = types.StringValue(app.Repository)
+		}
 	}
-	if plan.Owner.IsUnknown() && app.Owner != "" {
-		plan.Owner = types.StringValue(app.Owner)
+	if app.Owner != "" {
+		if plan.Owner.IsUnknown() {
+			plan.Owner = types.StringValue(app.Owner)
+		}
+		if plan.GithubOwner.IsUnknown() {
+			plan.GithubOwner = types.StringValue(app.Owner)
+		}
+	}
+	if app.Branch != "" {
+		if plan.GithubBranch.IsUnknown() {
+			plan.GithubBranch = types.StringValue(app.Branch)
+		}
+	}
+	if app.BuildPath != "" {
+		if plan.BuildPath.IsUnknown() {
+			plan.BuildPath = types.StringValue(app.BuildPath)
+		}
+		if plan.GithubBuildPath.IsUnknown() {
+			plan.GithubBuildPath = types.StringValue(app.BuildPath)
+		}
 	}
 	if plan.GithubId.IsUnknown() && app.GithubId != "" {
 		plan.GithubId = types.StringValue(app.GithubId)
@@ -1418,20 +1482,24 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	state.CleanCache = types.BoolValue(app.CleanCache)
 	// Note: WatchPaths is stored as a JSON string in the API, needs to be parsed for TF list
 
-	// GitHub provider fields
+	// GitHub provider fields - populate both legacy and new field names
 	if app.Repository != "" {
 		state.Repository = types.StringValue(app.Repository)
+		state.GithubRepository = types.StringValue(app.Repository)
 	}
 	if app.Branch != "" {
 		state.Branch = types.StringValue(app.Branch)
+		state.GithubBranch = types.StringValue(app.Branch)
 	}
 	if app.Owner != "" {
 		state.Owner = types.StringValue(app.Owner)
+		state.GithubOwner = types.StringValue(app.Owner)
 	}
 	// Only update build path if state has a value OR API returns non-default value
-	if !state.BuildPath.IsNull() || (app.BuildPath != "" && app.BuildPath != "/") {
+	if !state.BuildPath.IsNull() || !state.GithubBuildPath.IsNull() || (app.BuildPath != "" && app.BuildPath != "/") {
 		if app.BuildPath != "" {
 			state.BuildPath = types.StringValue(app.BuildPath)
+			state.GithubBuildPath = types.StringValue(app.BuildPath)
 		}
 	}
 	if app.GithubId != "" {

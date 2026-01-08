@@ -69,11 +69,11 @@ resource "dokploy_application" "api" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  # GitHub settings
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  # GitHub settings (using github_* prefix for consistency with other providers)
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   # Build settings (Nixpacks auto-detects your project type)
   build_type = "nixpacks"
@@ -90,6 +90,11 @@ resource "dokploy_application" "api" {
 }
 ```
 
+~> **Note:** The fields `owner`, `repository`, `branch`, and `build_path` are also available 
+as legacy aliases for `github_owner`, `github_repository`, `github_branch`, and `github_build_path` 
+respectively. The `github_*` prefix is recommended for consistency with other providers 
+(e.g., `gitlab_owner`, `bitbucket_owner`, `gitea_owner`).
+
 ### GitHub Repository with Dockerfile
 
 ```terraform
@@ -98,11 +103,11 @@ resource "dokploy_application" "web" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web-frontend"
-  branch      = "main"
-  build_path  = "apps/web"  # Monorepo path
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web-frontend"
+  github_branch     = "main"
+  github_build_path = "apps/web"  # Monorepo path
   
   # Dockerfile build
   build_type          = "dockerfile"
@@ -221,10 +226,10 @@ resource "dokploy_application" "docs" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "docs"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "docs"
+  github_branch     = "main"
   
   # Static build
   build_type        = "static"
@@ -267,10 +272,10 @@ resource "dokploy_application" "with_previews" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web"
+  github_branch     = "main"
   
   build_type = "nixpacks"
   
@@ -300,10 +305,10 @@ resource "dokploy_application" "with_rollback" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -325,10 +330,10 @@ resource "dokploy_application" "remote_build" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "heavy-build"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "heavy-build"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -399,11 +404,11 @@ resource "dokploy_application" "monorepo_app" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "monorepo"
-  branch      = "main"
-  build_path  = "services/api"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "monorepo"
+  github_branch     = "main"
+  github_build_path = "services/api"
   
   # Only trigger deployment when these paths change
   watch_paths = [
@@ -462,7 +467,7 @@ resource "dokploy_application" "drop_app" {
 - `bitbucket_repository` (String) Bitbucket repository name.
 - `branch` (String) Branch to deploy from (GitHub/GitLab/Bitbucket/Gitea).
 - `build_args` (String) Build arguments in KEY=VALUE format, one per line.
-- `build_path` (String) Build path within the repository for GitHub source.
+- `build_path` (String) Build path within the repository for GitHub source. Prefer 'github_build_path' for consistency.
 - `build_registry_id` (String) Registry ID to push build images to.
 - `build_secrets` (String, Sensitive) Build secrets in KEY=VALUE format, one per line.
 - `build_server_id` (String) Build server ID for remote builds.
@@ -493,7 +498,11 @@ resource "dokploy_application" "drop_app" {
 - `gitea_id` (String) Gitea integration ID. Required for Gitea source type.
 - `gitea_owner` (String) Gitea repository owner/organization.
 - `gitea_repository` (String) Gitea repository name.
+- `github_branch` (String) Branch to deploy from for GitHub source. Alias for 'branch'.
+- `github_build_path` (String) Build path within the repository for GitHub source. Alias for 'build_path'.
 - `github_id` (String) GitHub App installation ID. Required for GitHub source type.
+- `github_owner` (String) Repository owner/organization for GitHub source. Alias for 'owner'.
+- `github_repository` (String) Repository name for GitHub source (e.g., 'my-repo'). Alias for 'repository'.
 - `gitlab_branch` (String) GitLab branch to deploy from.
 - `gitlab_build_path` (String) Build path within the GitLab repository.
 - `gitlab_id` (String) GitLab integration ID. Required for GitLab source type.
@@ -509,7 +518,7 @@ resource "dokploy_application" "drop_app" {
 - `memory_reservation` (Number) Memory reservation (soft limit) in bytes.
 - `mode_swarm` (String) Service mode for Docker Swarm: replicated or global (JSON format).
 - `network_swarm` (String) Network configuration for Docker Swarm mode (JSON array format).
-- `owner` (String) Repository owner/organization for GitHub source.
+- `owner` (String) Repository owner/organization for GitHub source. Prefer 'github_owner' for consistency.
 - `password` (String, Sensitive) Password for Docker registry authentication.
 - `placement_swarm` (String) Placement constraints for Docker Swarm mode (JSON format).
 - `preview_build_args` (String) Build arguments for preview deployments.
@@ -530,7 +539,7 @@ resource "dokploy_application" "drop_app" {
 - `registry_id` (String) Registry ID from Dokploy registry management.
 - `registry_url` (String) Docker registry URL. Leave empty for Docker Hub.
 - `replicas` (Number) Number of container replicas to run.
-- `repository` (String) Repository name for GitHub source (e.g., 'my-repo').
+- `repository` (String) Repository name for GitHub source (e.g., 'my-repo'). Prefer 'github_repository' for consistency.
 - `restart_policy_swarm` (String) Restart policy configuration for Docker Swarm mode (JSON format).
 - `rollback_active` (Boolean) Enable rollback capability.
 - `rollback_config_swarm` (String) Rollback configuration for Docker Swarm mode (JSON format).

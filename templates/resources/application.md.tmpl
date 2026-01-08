@@ -69,11 +69,11 @@ resource "dokploy_application" "api" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  # GitHub settings
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  # GitHub settings (using github_* prefix for consistency with other providers)
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   # Build settings (Nixpacks auto-detects your project type)
   build_type = "nixpacks"
@@ -90,6 +90,11 @@ resource "dokploy_application" "api" {
 }
 ```
 
+~> **Note:** The fields `owner`, `repository`, `branch`, and `build_path` are also available 
+as legacy aliases for `github_owner`, `github_repository`, `github_branch`, and `github_build_path` 
+respectively. The `github_*` prefix is recommended for consistency with other providers 
+(e.g., `gitlab_owner`, `bitbucket_owner`, `gitea_owner`).
+
 ### GitHub Repository with Dockerfile
 
 ```terraform
@@ -98,11 +103,11 @@ resource "dokploy_application" "web" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web-frontend"
-  branch      = "main"
-  build_path  = "apps/web"  # Monorepo path
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web-frontend"
+  github_branch     = "main"
+  github_build_path = "apps/web"  # Monorepo path
   
   # Dockerfile build
   build_type          = "dockerfile"
@@ -221,10 +226,10 @@ resource "dokploy_application" "docs" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "docs"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "docs"
+  github_branch     = "main"
   
   # Static build
   build_type        = "static"
@@ -267,10 +272,10 @@ resource "dokploy_application" "with_previews" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "web"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "web"
+  github_branch     = "main"
   
   build_type = "nixpacks"
   
@@ -300,10 +305,10 @@ resource "dokploy_application" "with_rollback" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "api"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "api"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -325,10 +330,10 @@ resource "dokploy_application" "remote_build" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "heavy-build"
-  branch      = "main"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "heavy-build"
+  github_branch     = "main"
   
   build_type = "dockerfile"
   
@@ -399,11 +404,11 @@ resource "dokploy_application" "monorepo_app" {
   environment_id = dokploy_environment.production.id
   source_type    = "github"
   
-  github_id   = "your-github-app-installation-id"
-  owner       = "myorg"
-  repository  = "monorepo"
-  branch      = "main"
-  build_path  = "services/api"
+  github_id         = "your-github-app-installation-id"
+  github_owner      = "myorg"
+  github_repository = "monorepo"
+  github_branch     = "main"
+  github_build_path = "services/api"
   
   # Only trigger deployment when these paths change
   watch_paths = [
