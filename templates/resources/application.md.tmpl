@@ -340,6 +340,108 @@ resource "dokploy_application" "remote_build" {
 }
 ```
 
+### Application with Docker Swarm Configuration
+
+Configure advanced Docker Swarm settings using JSON format.
+
+```terraform
+resource "dokploy_application" "swarm_app" {
+  name           = "swarm-configured-app"
+  environment_id = dokploy_environment.production.id
+  source_type    = "docker"
+  docker_image   = "nginx:alpine"
+  
+  replicas = 3
+  
+  # Health check configuration
+  health_check_swarm = jsonencode({
+    Test     = ["CMD", "curl", "-f", "http://localhost/health"]
+    Interval = 30000000000  # 30 seconds in nanoseconds
+    Timeout  = 10000000000  # 10 seconds
+    Retries  = 3
+  })
+  
+  # Restart policy
+  restart_policy_swarm = jsonencode({
+    Condition   = "on-failure"
+    MaxAttempts = 3
+    Delay       = 5000000000  # 5 seconds
+    Window      = 60000000000 # 60 seconds
+  })
+  
+  # Update configuration
+  update_config_swarm = jsonencode({
+    Parallelism   = 1
+    Delay         = 10000000000
+    FailureAction = "rollback"
+    Order         = "start-first"
+  })
+  
+  # Placement constraints
+  placement_swarm = jsonencode({
+    Constraints = ["node.role == worker"]
+  })
+  
+  # Stop grace period (30 seconds)
+  stop_grace_period_swarm = 30000000000
+  
+  deploy_on_create = true
+}
+```
+
+### Application with Watch Paths
+
+Trigger deployments only when specific paths change.
+
+```terraform
+resource "dokploy_application" "monorepo_app" {
+  name           = "monorepo-service"
+  environment_id = dokploy_environment.production.id
+  source_type    = "github"
+  
+  github_id   = "your-github-app-installation-id"
+  owner       = "myorg"
+  repository  = "monorepo"
+  branch      = "main"
+  build_path  = "services/api"
+  
+  # Only trigger deployment when these paths change
+  watch_paths = [
+    "services/api/**",
+    "shared/lib/**",
+    "package.json"
+  ]
+  
+  build_type       = "nixpacks"
+  auto_deploy      = true
+  deploy_on_create = true
+}
+```
+
+### Drop Source Deployment (File Upload)
+
+Deploy using raw Dockerfile content for quick prototyping.
+
+```terraform
+resource "dokploy_application" "drop_app" {
+  name           = "quick-deploy"
+  environment_id = dokploy_environment.production.id
+  source_type    = "drop"
+  
+  # Raw Dockerfile content
+  dockerfile = <<-DOCKERFILE
+    FROM nginx:alpine
+    COPY . /usr/share/nginx/html
+    EXPOSE 80
+    CMD ["nginx", "-g", "daemon off;"]
+  DOCKERFILE
+  
+  drop_build_path = "/app"
+  
+  deploy_on_create = true
+}
+```
+
 {{ .SchemaMarkdown | trimspace }}
 
 ## Import

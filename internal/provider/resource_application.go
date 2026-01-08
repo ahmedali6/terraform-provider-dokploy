@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -47,6 +48,7 @@ type ApplicationResourceModel struct {
 	CustomGitSSHKeyID  types.String `tfsdk:"custom_git_ssh_key_id"`
 	CustomGitBuildPath types.String `tfsdk:"custom_git_build_path"`
 	EnableSubmodules   types.Bool   `tfsdk:"enable_submodules"`
+	WatchPaths         types.List   `tfsdk:"watch_paths"`
 	CleanCache         types.Bool   `tfsdk:"clean_cache"`
 
 	// GitHub provider settings (for source_type = "github")
@@ -93,6 +95,8 @@ type ApplicationResourceModel struct {
 	DockerContextPath types.String `tfsdk:"docker_context_path"`
 	DockerBuildStage  types.String `tfsdk:"docker_build_stage"`
 	PublishDirectory  types.String `tfsdk:"publish_directory"`
+	Dockerfile        types.String `tfsdk:"dockerfile"`
+	DropBuildPath     types.String `tfsdk:"drop_build_path"`
 	HerokuVersion     types.String `tfsdk:"heroku_version"`
 	RailpackVersion   types.String `tfsdk:"railpack_version"`
 	IsStaticSpa       types.Bool   `tfsdk:"is_static_spa"`
@@ -117,11 +121,14 @@ type ApplicationResourceModel struct {
 	IsPreviewDeploymentsActive            types.Bool   `tfsdk:"preview_deployments_enabled"`
 	PreviewEnv                            types.String `tfsdk:"preview_env"`
 	PreviewBuildArgs                      types.String `tfsdk:"preview_build_args"`
+	PreviewBuildSecrets                   types.String `tfsdk:"preview_build_secrets"`
+	PreviewLabels                         types.List   `tfsdk:"preview_labels"`
 	PreviewWildcard                       types.String `tfsdk:"preview_wildcard"`
 	PreviewPort                           types.Int64  `tfsdk:"preview_port"`
 	PreviewHttps                          types.Bool   `tfsdk:"preview_https"`
 	PreviewPath                           types.String `tfsdk:"preview_path"`
 	PreviewCertificateType                types.String `tfsdk:"preview_certificate_type"`
+	PreviewCustomCertResolver             types.String `tfsdk:"preview_custom_cert_resolver"`
 	PreviewLimit                          types.Int64  `tfsdk:"preview_limit"`
 	PreviewRequireCollaboratorPermissions types.Bool   `tfsdk:"preview_require_collaborator_permissions"`
 
@@ -140,6 +147,21 @@ type ApplicationResourceModel struct {
 
 	// Deployment options
 	DeployOnCreate types.Bool `tfsdk:"deploy_on_create"`
+
+	// Application status (computed)
+	ApplicationStatus types.String `tfsdk:"application_status"`
+
+	// Docker Swarm configuration (stored as JSON strings)
+	HealthCheckSwarm     types.String `tfsdk:"health_check_swarm"`
+	RestartPolicySwarm   types.String `tfsdk:"restart_policy_swarm"`
+	PlacementSwarm       types.String `tfsdk:"placement_swarm"`
+	UpdateConfigSwarm    types.String `tfsdk:"update_config_swarm"`
+	RollbackConfigSwarm  types.String `tfsdk:"rollback_config_swarm"`
+	ModeSwarm            types.String `tfsdk:"mode_swarm"`
+	LabelsSwarm          types.String `tfsdk:"labels_swarm"`
+	NetworkSwarm         types.String `tfsdk:"network_swarm"`
+	StopGracePeriodSwarm types.Int64  `tfsdk:"stop_grace_period_swarm"`
+	EndpointSpecSwarm    types.String `tfsdk:"endpoint_spec_swarm"`
 }
 
 func (r *ApplicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -227,6 +249,11 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:    true,
 				Description: "Clean cache before building.",
 				Default:     booldefault.StaticBool(false),
+			},
+			"watch_paths": schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Paths to watch for changes to trigger deployments.",
 			},
 
 			// GitHub provider settings (source_type = "github")
@@ -389,6 +416,14 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "Publish directory for static builds.",
 			},
+			"dockerfile": schema.StringAttribute{
+				Optional:    true,
+				Description: "Raw Dockerfile content (for 'drop' source type or inline Dockerfile).",
+			},
+			"drop_build_path": schema.StringAttribute{
+				Optional:    true,
+				Description: "Build path for 'drop' source type deployments.",
+			},
 			"heroku_version": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -478,6 +513,16 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "Build arguments for preview deployments.",
 			},
+			"preview_build_secrets": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Build secrets for preview deployments in KEY=VALUE format.",
+			},
+			"preview_labels": schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Labels for preview deployments.",
+			},
 			"preview_wildcard": schema.StringAttribute{
 				Optional:    true,
 				Description: "Wildcard domain for preview deployments (e.g., '*.preview.example.com').",
@@ -504,6 +549,10 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Validators: []validator.String{
 					stringvalidator.OneOf("letsencrypt", "none"),
 				},
+			},
+			"preview_custom_cert_resolver": schema.StringAttribute{
+				Optional:    true,
+				Description: "Custom certificate resolver for preview deployments.",
 			},
 			"preview_limit": schema.Int64Attribute{
 				Optional:    true,
@@ -556,6 +605,54 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"deploy_on_create": schema.BoolAttribute{
 				Optional:    true,
 				Description: "Trigger a deployment after creating the application.",
+			},
+
+			// Application status (computed)
+			"application_status": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current status of the application: idle, running, done, error.",
+			},
+
+			// Docker Swarm configuration
+			"health_check_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Health check configuration for Docker Swarm mode (JSON format).",
+			},
+			"restart_policy_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Restart policy configuration for Docker Swarm mode (JSON format).",
+			},
+			"placement_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Placement constraints for Docker Swarm mode (JSON format).",
+			},
+			"update_config_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Update configuration for Docker Swarm mode (JSON format).",
+			},
+			"rollback_config_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Rollback configuration for Docker Swarm mode (JSON format).",
+			},
+			"mode_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Service mode for Docker Swarm: replicated or global (JSON format).",
+			},
+			"labels_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Labels for Docker Swarm service (JSON format).",
+			},
+			"network_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Network configuration for Docker Swarm mode (JSON array format).",
+			},
+			"stop_grace_period_swarm": schema.Int64Attribute{
+				Optional:    true,
+				Description: "Stop grace period in nanoseconds for Docker Swarm mode.",
+			},
+			"endpoint_spec_swarm": schema.StringAttribute{
+				Optional:    true,
+				Description: "Endpoint specification for Docker Swarm mode (JSON format).",
 			},
 		},
 	}
@@ -838,10 +935,16 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 	if !plan.PreviewCertificateType.IsNull() && !plan.PreviewCertificateType.IsUnknown() {
 		generalApp.PreviewCertificateType = plan.PreviewCertificateType.ValueString()
 	}
+	if !plan.PreviewCustomCertResolver.IsNull() && !plan.PreviewCustomCertResolver.IsUnknown() {
+		generalApp.PreviewCustomCertResolver = plan.PreviewCustomCertResolver.ValueString()
+	}
 	if !plan.PreviewLimit.IsNull() && !plan.PreviewLimit.IsUnknown() {
 		generalApp.PreviewLimit = plan.PreviewLimit.ValueInt64()
 	}
 	generalApp.PreviewRequireCollaboratorPermissions = plan.PreviewRequireCollaboratorPermissions.ValueBool()
+	if !plan.PreviewBuildSecrets.IsNull() && !plan.PreviewBuildSecrets.IsUnknown() {
+		generalApp.PreviewBuildSecrets = plan.PreviewBuildSecrets.ValueString()
+	}
 
 	// Rollback
 	generalApp.RollbackActive = plan.RollbackActive.ValueBool()
@@ -865,6 +968,66 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 		generalApp.Subtitle = plan.Subtitle.ValueString()
 	}
 	generalApp.Enabled = plan.Enabled.ValueBool()
+
+	// Docker Swarm fields - parse JSON strings to maps
+	if !plan.HealthCheckSwarm.IsNull() && !plan.HealthCheckSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.HealthCheckSwarm.ValueString()), &m); err == nil {
+			generalApp.HealthCheckSwarm = m
+		}
+	}
+	if !plan.RestartPolicySwarm.IsNull() && !plan.RestartPolicySwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.RestartPolicySwarm.ValueString()), &m); err == nil {
+			generalApp.RestartPolicySwarm = m
+		}
+	}
+	if !plan.PlacementSwarm.IsNull() && !plan.PlacementSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.PlacementSwarm.ValueString()), &m); err == nil {
+			generalApp.PlacementSwarm = m
+		}
+	}
+	if !plan.UpdateConfigSwarm.IsNull() && !plan.UpdateConfigSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.UpdateConfigSwarm.ValueString()), &m); err == nil {
+			generalApp.UpdateConfigSwarm = m
+		}
+	}
+	if !plan.RollbackConfigSwarm.IsNull() && !plan.RollbackConfigSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.RollbackConfigSwarm.ValueString()), &m); err == nil {
+			generalApp.RollbackConfigSwarm = m
+		}
+	}
+	if !plan.ModeSwarm.IsNull() && !plan.ModeSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.ModeSwarm.ValueString()), &m); err == nil {
+			generalApp.ModeSwarm = m
+		}
+	}
+	if !plan.LabelsSwarm.IsNull() && !plan.LabelsSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.LabelsSwarm.ValueString()), &m); err == nil {
+			generalApp.LabelsSwarm = m
+		}
+	}
+	if !plan.NetworkSwarm.IsNull() && !plan.NetworkSwarm.IsUnknown() {
+		var arr []map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.NetworkSwarm.ValueString()), &arr); err == nil {
+			generalApp.NetworkSwarm = arr
+		}
+	}
+	if !plan.StopGracePeriodSwarm.IsNull() && !plan.StopGracePeriodSwarm.IsUnknown() {
+		val := plan.StopGracePeriodSwarm.ValueInt64()
+		generalApp.StopGracePeriodSwarm = &val
+	}
+	if !plan.EndpointSpecSwarm.IsNull() && !plan.EndpointSpecSwarm.IsUnknown() {
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(plan.EndpointSpecSwarm.ValueString()), &m); err == nil {
+			generalApp.EndpointSpecSwarm = m
+		}
+	}
 
 	_, err := r.client.UpdateApplicationGeneral(generalApp)
 	return err
@@ -1145,6 +1308,75 @@ func updatePlanFromApplication(plan *ApplicationResourceModel, app *client.Appli
 
 	// Rollback computed field
 	plan.RollbackActive = types.BoolValue(app.RollbackActive)
+
+	// New fields: Build type
+	if app.Dockerfile != "" {
+		plan.Dockerfile = types.StringValue(app.Dockerfile)
+	}
+	if app.DropBuildPath != "" {
+		plan.DropBuildPath = types.StringValue(app.DropBuildPath)
+	}
+
+	// New fields: Preview
+	if app.PreviewBuildSecrets != "" {
+		plan.PreviewBuildSecrets = types.StringValue(app.PreviewBuildSecrets)
+	}
+	if app.PreviewCustomCertResolver != "" {
+		plan.PreviewCustomCertResolver = types.StringValue(app.PreviewCustomCertResolver)
+	}
+
+	// Application status (computed)
+	plan.ApplicationStatus = types.StringValue(app.ApplicationStatus)
+
+	// Docker Swarm fields - convert maps to JSON strings
+	if app.HealthCheckSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.HealthCheckSwarm); err == nil {
+			plan.HealthCheckSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.RestartPolicySwarm != nil {
+		if jsonBytes, err := json.Marshal(app.RestartPolicySwarm); err == nil {
+			plan.RestartPolicySwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.PlacementSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.PlacementSwarm); err == nil {
+			plan.PlacementSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.UpdateConfigSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.UpdateConfigSwarm); err == nil {
+			plan.UpdateConfigSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.RollbackConfigSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.RollbackConfigSwarm); err == nil {
+			plan.RollbackConfigSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.ModeSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.ModeSwarm); err == nil {
+			plan.ModeSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.LabelsSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.LabelsSwarm); err == nil {
+			plan.LabelsSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.NetworkSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.NetworkSwarm); err == nil {
+			plan.NetworkSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.StopGracePeriodSwarm != nil {
+		plan.StopGracePeriodSwarm = types.Int64Value(*app.StopGracePeriodSwarm)
+	}
+	if app.EndpointSpecSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.EndpointSpecSwarm); err == nil {
+			plan.EndpointSpecSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
 }
 
 func readApplicationIntoState(state *ApplicationResourceModel, app *client.Application) {
@@ -1184,6 +1416,7 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	}
 	state.EnableSubmodules = types.BoolValue(app.EnableSubmodules)
 	state.CleanCache = types.BoolValue(app.CleanCache)
+	// Note: WatchPaths is stored as a JSON string in the API, needs to be parsed for TF list
 
 	// GitHub provider fields
 	if app.Repository != "" {
@@ -1386,4 +1619,73 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 		state.Subtitle = types.StringValue(app.Subtitle)
 	}
 	state.Enabled = types.BoolValue(app.Enabled)
+
+	// New fields: Build type
+	if app.Dockerfile != "" {
+		state.Dockerfile = types.StringValue(app.Dockerfile)
+	}
+	if app.DropBuildPath != "" {
+		state.DropBuildPath = types.StringValue(app.DropBuildPath)
+	}
+
+	// New fields: Preview
+	if app.PreviewBuildSecrets != "" {
+		state.PreviewBuildSecrets = types.StringValue(app.PreviewBuildSecrets)
+	}
+	if app.PreviewCustomCertResolver != "" {
+		state.PreviewCustomCertResolver = types.StringValue(app.PreviewCustomCertResolver)
+	}
+
+	// Application status (computed)
+	state.ApplicationStatus = types.StringValue(app.ApplicationStatus)
+
+	// Docker Swarm fields - convert maps to JSON strings
+	if app.HealthCheckSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.HealthCheckSwarm); err == nil {
+			state.HealthCheckSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.RestartPolicySwarm != nil {
+		if jsonBytes, err := json.Marshal(app.RestartPolicySwarm); err == nil {
+			state.RestartPolicySwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.PlacementSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.PlacementSwarm); err == nil {
+			state.PlacementSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.UpdateConfigSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.UpdateConfigSwarm); err == nil {
+			state.UpdateConfigSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.RollbackConfigSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.RollbackConfigSwarm); err == nil {
+			state.RollbackConfigSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.ModeSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.ModeSwarm); err == nil {
+			state.ModeSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.LabelsSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.LabelsSwarm); err == nil {
+			state.LabelsSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.NetworkSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.NetworkSwarm); err == nil {
+			state.NetworkSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
+	if app.StopGracePeriodSwarm != nil {
+		state.StopGracePeriodSwarm = types.Int64Value(*app.StopGracePeriodSwarm)
+	}
+	if app.EndpointSpecSwarm != nil {
+		if jsonBytes, err := json.Marshal(app.EndpointSpecSwarm); err == nil {
+			state.EndpointSpecSwarm = types.StringValue(string(jsonBytes))
+		}
+	}
 }
