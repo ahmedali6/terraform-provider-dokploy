@@ -2901,3 +2901,552 @@ func (c *DokployClient) DeleteRedis(id string) error {
 	_, err := c.doRequest("POST", "redis.remove", payload)
 	return err
 }
+
+// --- GitLab Provider ---
+
+type GitlabProvider struct {
+	ID             string `json:"gitlabId"`
+	GitProviderId  string `json:"gitProviderId"`
+	Name           string `json:"name"`
+	GitlabUrl      string `json:"gitlabUrl"`
+	ApplicationId  string `json:"applicationId"`
+	RedirectUri    string `json:"redirectUri"`
+	Secret         string `json:"secret"`
+	AccessToken    string `json:"accessToken"`
+	RefreshToken   string `json:"refreshToken"`
+	GroupName      string `json:"groupName"`
+	ExpiresAt      int64  `json:"expiresAt"`
+	AuthId         string `json:"authId"`
+	OrganizationID string `json:"organizationId"`
+	CreatedAt      string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabProvider, error) {
+	payload := map[string]interface{}{
+		"name":      provider.Name,
+		"gitlabUrl": provider.GitlabUrl,
+		"authId":    provider.AuthId,
+	}
+
+	if provider.ApplicationId != "" {
+		payload["applicationId"] = provider.ApplicationId
+	}
+	if provider.RedirectUri != "" {
+		payload["redirectUri"] = provider.RedirectUri
+	}
+	if provider.Secret != "" {
+		payload["secret"] = provider.Secret
+	}
+	if provider.AccessToken != "" {
+		payload["accessToken"] = provider.AccessToken
+	}
+	if provider.RefreshToken != "" {
+		payload["refreshToken"] = provider.RefreshToken
+	}
+	if provider.GroupName != "" {
+		payload["groupName"] = provider.GroupName
+	}
+	if provider.ExpiresAt != 0 {
+		payload["expiresAt"] = provider.ExpiresAt
+	}
+
+	resp, err := c.doRequest("POST", "gitlab.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to unmarshal the response
+	var result GitlabProvider
+	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		return &result, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		GitlabProvider GitlabProvider `json:"gitlab"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.GitlabProvider.ID != "" {
+		return &wrapper.GitlabProvider, nil
+	}
+
+	// If we got here, try to find by name
+	return c.findGitlabProviderByName(provider.Name)
+}
+
+func (c *DokployClient) findGitlabProviderByName(name string) (*GitlabProvider, error) {
+	providers, err := c.ListGitlabProviders()
+	if err != nil {
+		return nil, fmt.Errorf("gitlab provider created but failed to list providers: %w", err)
+	}
+	for _, p := range providers {
+		if p.Name == name {
+			return &p, nil
+		}
+	}
+	return nil, fmt.Errorf("gitlab provider created but not found in list by name: %s", name)
+}
+
+func (c *DokployClient) GetGitlabProvider(id string) (*GitlabProvider, error) {
+	endpoint := fmt.Sprintf("gitlab.one?gitlabId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GitlabProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) UpdateGitlabProvider(provider GitlabProvider) (*GitlabProvider, error) {
+	payload := map[string]interface{}{
+		"gitlabId": provider.ID,
+		"name":     provider.Name,
+	}
+
+	if provider.GitlabUrl != "" {
+		payload["gitlabUrl"] = provider.GitlabUrl
+	}
+	if provider.ApplicationId != "" {
+		payload["applicationId"] = provider.ApplicationId
+	}
+	if provider.RedirectUri != "" {
+		payload["redirectUri"] = provider.RedirectUri
+	}
+	if provider.Secret != "" {
+		payload["secret"] = provider.Secret
+	}
+	if provider.AccessToken != "" {
+		payload["accessToken"] = provider.AccessToken
+	}
+	if provider.RefreshToken != "" {
+		payload["refreshToken"] = provider.RefreshToken
+	}
+	if provider.GroupName != "" {
+		payload["groupName"] = provider.GroupName
+	}
+	if provider.ExpiresAt != 0 {
+		payload["expiresAt"] = provider.ExpiresAt
+	}
+	if provider.GitProviderId != "" {
+		payload["gitProviderId"] = provider.GitProviderId
+	}
+	if provider.AuthId != "" {
+		payload["authId"] = provider.AuthId
+	}
+
+	resp, err := c.doRequest("POST", "gitlab.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp) == 0 || string(resp) == "true" {
+		return c.GetGitlabProvider(provider.ID)
+	}
+
+	var result GitlabProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return c.GetGitlabProvider(provider.ID)
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) DeleteGitProvider(gitProviderId string) error {
+	payload := map[string]string{
+		"gitProviderId": gitProviderId,
+	}
+	_, err := c.doRequest("POST", "gitProvider.remove", payload)
+	return err
+}
+
+func (c *DokployClient) ListGitlabProviders() ([]GitlabProvider, error) {
+	resp, err := c.doRequest("GET", "gitlab.gitlabProviders", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try direct array response
+	var providers []GitlabProvider
+	if err := json.Unmarshal(resp, &providers); err == nil {
+		return providers, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		Providers []GitlabProvider `json:"providers"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil {
+		return wrapper.Providers, nil
+	}
+
+	// Try gitlabProviders key
+	var wrapper2 struct {
+		Providers []GitlabProvider `json:"gitlabProviders"`
+	}
+	if err := json.Unmarshal(resp, &wrapper2); err == nil {
+		return wrapper2.Providers, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse gitlab providers response")
+}
+
+// --- Bitbucket Provider ---
+
+type BitbucketProvider struct {
+	ID                     string `json:"bitbucketId"`
+	GitProviderId          string `json:"gitProviderId"`
+	Name                   string `json:"name"`
+	BitbucketUsername      string `json:"bitbucketUsername"`
+	BitbucketEmail         string `json:"bitbucketEmail"`
+	AppPassword            string `json:"appPassword"`
+	ApiToken               string `json:"apiToken"`
+	BitbucketWorkspaceName string `json:"bitbucketWorkspaceName"`
+	AuthId                 string `json:"authId"`
+	OrganizationID         string `json:"organizationId"`
+	CreatedAt              string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateBitbucketProvider(provider BitbucketProvider) (*BitbucketProvider, error) {
+	payload := map[string]interface{}{
+		"name":   provider.Name,
+		"authId": provider.AuthId,
+	}
+
+	if provider.BitbucketUsername != "" {
+		payload["bitbucketUsername"] = provider.BitbucketUsername
+	}
+	if provider.BitbucketEmail != "" {
+		payload["bitbucketEmail"] = provider.BitbucketEmail
+	}
+	if provider.AppPassword != "" {
+		payload["appPassword"] = provider.AppPassword
+	}
+	if provider.ApiToken != "" {
+		payload["apiToken"] = provider.ApiToken
+	}
+	if provider.BitbucketWorkspaceName != "" {
+		payload["bitbucketWorkspaceName"] = provider.BitbucketWorkspaceName
+	}
+
+	resp, err := c.doRequest("POST", "bitbucket.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to unmarshal the response
+	var result BitbucketProvider
+	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		return &result, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		BitbucketProvider BitbucketProvider `json:"bitbucket"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.BitbucketProvider.ID != "" {
+		return &wrapper.BitbucketProvider, nil
+	}
+
+	// If we got here, try to find by name
+	return c.findBitbucketProviderByName(provider.Name)
+}
+
+func (c *DokployClient) findBitbucketProviderByName(name string) (*BitbucketProvider, error) {
+	providers, err := c.ListBitbucketProviders()
+	if err != nil {
+		return nil, fmt.Errorf("bitbucket provider created but failed to list providers: %w", err)
+	}
+	for _, p := range providers {
+		if p.Name == name {
+			return &p, nil
+		}
+	}
+	return nil, fmt.Errorf("bitbucket provider created but not found in list by name: %s", name)
+}
+
+func (c *DokployClient) GetBitbucketProvider(id string) (*BitbucketProvider, error) {
+	endpoint := fmt.Sprintf("bitbucket.one?bitbucketId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result BitbucketProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) UpdateBitbucketProvider(provider BitbucketProvider) (*BitbucketProvider, error) {
+	payload := map[string]interface{}{
+		"bitbucketId":   provider.ID,
+		"name":          provider.Name,
+		"gitProviderId": provider.GitProviderId,
+	}
+
+	if provider.BitbucketUsername != "" {
+		payload["bitbucketUsername"] = provider.BitbucketUsername
+	}
+	if provider.BitbucketEmail != "" {
+		payload["bitbucketEmail"] = provider.BitbucketEmail
+	}
+	if provider.AppPassword != "" {
+		payload["appPassword"] = provider.AppPassword
+	}
+	if provider.ApiToken != "" {
+		payload["apiToken"] = provider.ApiToken
+	}
+	if provider.BitbucketWorkspaceName != "" {
+		payload["bitbucketWorkspaceName"] = provider.BitbucketWorkspaceName
+	}
+	if provider.AuthId != "" {
+		payload["authId"] = provider.AuthId
+	}
+
+	resp, err := c.doRequest("POST", "bitbucket.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp) == 0 || string(resp) == "true" {
+		return c.GetBitbucketProvider(provider.ID)
+	}
+
+	var result BitbucketProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return c.GetBitbucketProvider(provider.ID)
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) ListBitbucketProviders() ([]BitbucketProvider, error) {
+	resp, err := c.doRequest("GET", "bitbucket.bitbucketProviders", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try direct array response
+	var providers []BitbucketProvider
+	if err := json.Unmarshal(resp, &providers); err == nil {
+		return providers, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		Providers []BitbucketProvider `json:"providers"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil {
+		return wrapper.Providers, nil
+	}
+
+	// Try bitbucketProviders key
+	var wrapper2 struct {
+		Providers []BitbucketProvider `json:"bitbucketProviders"`
+	}
+	if err := json.Unmarshal(resp, &wrapper2); err == nil {
+		return wrapper2.Providers, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse bitbucket providers response")
+}
+
+// --- Gitea Provider ---
+
+type GiteaProvider struct {
+	ID                  string `json:"giteaId"`
+	GitProviderId       string `json:"gitProviderId"`
+	Name                string `json:"name"`
+	GiteaUrl            string `json:"giteaUrl"`
+	RedirectUri         string `json:"redirectUri"`
+	ClientId            string `json:"clientId"`
+	ClientSecret        string `json:"clientSecret"`
+	AccessToken         string `json:"accessToken"`
+	RefreshToken        string `json:"refreshToken"`
+	ExpiresAt           int64  `json:"expiresAt"`
+	Scopes              string `json:"scopes"`
+	LastAuthenticatedAt int64  `json:"lastAuthenticatedAt"`
+	GiteaUsername       string `json:"giteaUsername"`
+	OrganizationName    string `json:"organizationName"`
+	OrganizationID      string `json:"organizationId"`
+	CreatedAt           string `json:"createdAt"`
+}
+
+func (c *DokployClient) CreateGiteaProvider(provider GiteaProvider) (*GiteaProvider, error) {
+	payload := map[string]interface{}{
+		"name":     provider.Name,
+		"giteaUrl": provider.GiteaUrl,
+	}
+
+	if provider.RedirectUri != "" {
+		payload["redirectUri"] = provider.RedirectUri
+	}
+	if provider.ClientId != "" {
+		payload["clientId"] = provider.ClientId
+	}
+	if provider.ClientSecret != "" {
+		payload["clientSecret"] = provider.ClientSecret
+	}
+	if provider.AccessToken != "" {
+		payload["accessToken"] = provider.AccessToken
+	}
+	if provider.RefreshToken != "" {
+		payload["refreshToken"] = provider.RefreshToken
+	}
+	if provider.ExpiresAt != 0 {
+		payload["expiresAt"] = provider.ExpiresAt
+	}
+	if provider.Scopes != "" {
+		payload["scopes"] = provider.Scopes
+	}
+	if provider.LastAuthenticatedAt != 0 {
+		payload["lastAuthenticatedAt"] = provider.LastAuthenticatedAt
+	}
+	if provider.GiteaUsername != "" {
+		payload["giteaUsername"] = provider.GiteaUsername
+	}
+	if provider.OrganizationName != "" {
+		payload["organizationName"] = provider.OrganizationName
+	}
+
+	resp, err := c.doRequest("POST", "gitea.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try to unmarshal the response
+	var result GiteaProvider
+	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		return &result, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		GiteaProvider GiteaProvider `json:"gitea"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.GiteaProvider.ID != "" {
+		return &wrapper.GiteaProvider, nil
+	}
+
+	// If we got here, try to find by name
+	return c.findGiteaProviderByName(provider.Name)
+}
+
+func (c *DokployClient) findGiteaProviderByName(name string) (*GiteaProvider, error) {
+	providers, err := c.ListGiteaProviders()
+	if err != nil {
+		return nil, fmt.Errorf("gitea provider created but failed to list providers: %w", err)
+	}
+	for _, p := range providers {
+		if p.Name == name {
+			return &p, nil
+		}
+	}
+	return nil, fmt.Errorf("gitea provider created but not found in list by name: %s", name)
+}
+
+func (c *DokployClient) GetGiteaProvider(id string) (*GiteaProvider, error) {
+	endpoint := fmt.Sprintf("gitea.one?giteaId=%s", id)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GiteaProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) UpdateGiteaProvider(provider GiteaProvider) (*GiteaProvider, error) {
+	payload := map[string]interface{}{
+		"giteaId": provider.ID,
+		"name":    provider.Name,
+	}
+
+	if provider.GiteaUrl != "" {
+		payload["giteaUrl"] = provider.GiteaUrl
+	}
+	if provider.RedirectUri != "" {
+		payload["redirectUri"] = provider.RedirectUri
+	}
+	if provider.ClientId != "" {
+		payload["clientId"] = provider.ClientId
+	}
+	if provider.ClientSecret != "" {
+		payload["clientSecret"] = provider.ClientSecret
+	}
+	if provider.AccessToken != "" {
+		payload["accessToken"] = provider.AccessToken
+	}
+	if provider.RefreshToken != "" {
+		payload["refreshToken"] = provider.RefreshToken
+	}
+	if provider.ExpiresAt != 0 {
+		payload["expiresAt"] = provider.ExpiresAt
+	}
+	if provider.Scopes != "" {
+		payload["scopes"] = provider.Scopes
+	}
+	if provider.LastAuthenticatedAt != 0 {
+		payload["lastAuthenticatedAt"] = provider.LastAuthenticatedAt
+	}
+	if provider.GiteaUsername != "" {
+		payload["giteaUsername"] = provider.GiteaUsername
+	}
+	if provider.OrganizationName != "" {
+		payload["organizationName"] = provider.OrganizationName
+	}
+	if provider.GitProviderId != "" {
+		payload["gitProviderId"] = provider.GitProviderId
+	}
+
+	resp, err := c.doRequest("POST", "gitea.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp) == 0 || string(resp) == "true" {
+		return c.GetGiteaProvider(provider.ID)
+	}
+
+	var result GiteaProvider
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return c.GetGiteaProvider(provider.ID)
+	}
+	return &result, nil
+}
+
+func (c *DokployClient) ListGiteaProviders() ([]GiteaProvider, error) {
+	resp, err := c.doRequest("GET", "gitea.giteaProviders", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Try direct array response
+	var providers []GiteaProvider
+	if err := json.Unmarshal(resp, &providers); err == nil {
+		return providers, nil
+	}
+
+	// Try wrapper format
+	var wrapper struct {
+		Providers []GiteaProvider `json:"providers"`
+	}
+	if err := json.Unmarshal(resp, &wrapper); err == nil {
+		return wrapper.Providers, nil
+	}
+
+	// Try giteaProviders key
+	var wrapper2 struct {
+		Providers []GiteaProvider `json:"giteaProviders"`
+	}
+	if err := json.Unmarshal(resp, &wrapper2); err == nil {
+		return wrapper2.Providers, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse gitea providers response")
+}

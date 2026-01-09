@@ -1,0 +1,128 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+var _ datasource.DataSource = &GitlabProvidersDataSource{}
+
+func NewGitlabProvidersDataSource() datasource.DataSource {
+	return &GitlabProvidersDataSource{}
+}
+
+type GitlabProvidersDataSource struct {
+	client *client.DokployClient
+}
+
+type GitlabProvidersDataSourceModel struct {
+	Providers []GitlabProviderDataModel `tfsdk:"providers"`
+}
+
+type GitlabProviderDataModel struct {
+	ID             types.String `tfsdk:"id"`
+	GitProviderId  types.String `tfsdk:"git_provider_id"`
+	Name           types.String `tfsdk:"name"`
+	GitlabUrl      types.String `tfsdk:"gitlab_url"`
+	GroupName      types.String `tfsdk:"group_name"`
+	OrganizationID types.String `tfsdk:"organization_id"`
+	CreatedAt      types.String `tfsdk:"created_at"`
+}
+
+func (d *GitlabProvidersDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_gitlab_providers"
+}
+
+func (d *GitlabProvidersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Fetches the list of GitLab providers configured in Dokploy.",
+		Attributes: map[string]schema.Attribute{
+			"providers": schema.ListNestedAttribute{
+				Computed:    true,
+				Description: "List of GitLab providers.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed:    true,
+							Description: "The unique identifier (gitlabId) of the GitLab provider.",
+						},
+						"git_provider_id": schema.StringAttribute{
+							Computed:    true,
+							Description: "The git provider ID.",
+						},
+						"name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The name of the GitLab provider.",
+						},
+						"gitlab_url": schema.StringAttribute{
+							Computed:    true,
+							Description: "The GitLab instance URL.",
+						},
+						"group_name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The GitLab group name.",
+						},
+						"organization_id": schema.StringAttribute{
+							Computed:    true,
+							Description: "The Dokploy organization ID this provider belongs to.",
+						},
+						"created_at": schema.StringAttribute{
+							Computed:    true,
+							Description: "The creation timestamp of the provider.",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (d *GitlabProvidersDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	client, ok := req.ProviderData.(*client.DokployClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Data Source Configure Type", fmt.Sprintf("Expected *client.DokployClient, got: %T", req.ProviderData))
+		return
+	}
+	d.client = client
+}
+
+func (d *GitlabProvidersDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var config GitlabProvidersDataSourceModel
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	providers, err := d.client.ListGitlabProviders()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read GitLab Providers", err.Error())
+		return
+	}
+
+	var state GitlabProvidersDataSourceModel
+
+	for _, provider := range providers {
+		providerModel := GitlabProviderDataModel{
+			ID:             types.StringValue(provider.ID),
+			GitProviderId:  types.StringValue(provider.GitProviderId),
+			Name:           types.StringValue(provider.Name),
+			GitlabUrl:      types.StringValue(provider.GitlabUrl),
+			GroupName:      types.StringValue(provider.GroupName),
+			OrganizationID: types.StringValue(provider.OrganizationID),
+			CreatedAt:      types.StringValue(provider.CreatedAt),
+		}
+		state.Providers = append(state.Providers, providerModel)
+	}
+
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+}

@@ -97,6 +97,9 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewBackupResource,
 		NewServerResource,
 		NewRedisResource,
+		NewGitlabProviderResource,
+		NewBitbucketProviderResource,
+		NewGiteaProviderResource,
 	}
 }
 
@@ -104,6 +107,9 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		NewServersDataSource,
 		NewGithubProvidersDataSource,
+		NewGitlabProvidersDataSource,
+		NewBitbucketProvidersDataSource,
+		NewGiteaProvidersDataSource,
 	}
 }
 
