@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -359,6 +360,9 @@ func (c *DokployClient) CreateAI(name, apiURL, apiKey, model string, isEnabled b
 		"isEnabled": isEnabled,
 	}
 
+	// Record time before creation to help identify the new resource
+	creationTime := time.Now().Add(-1 * time.Second)
+
 	_, err := c.doRequest("POST", "ai.create", payload)
 	if err != nil {
 		return nil, err
@@ -370,11 +374,25 @@ func (c *DokployClient) CreateAI(name, apiURL, apiKey, model string, isEnabled b
 		return nil, err
 	}
 
-	// Find the newly created AI by name (most recent with matching name)
-	for i := len(ais) - 1; i >= 0; i-- {
+	// Find the newly created AI by name and creation time
+	// Look for the most recently created AI with matching name that was created after our timestamp
+	var bestMatch *AI
+	var bestMatchTime time.Time
+	for i := range ais {
 		if ais[i].Name == name {
-			return &ais[i], nil
+			aiCreatedAt, parseErr := time.Parse(time.RFC3339, ais[i].CreatedAt)
+			if parseErr != nil {
+				continue
+			}
+			if aiCreatedAt.After(creationTime) && (bestMatch == nil || aiCreatedAt.After(bestMatchTime)) {
+				bestMatch = &ais[i]
+				bestMatchTime = aiCreatedAt
+			}
 		}
+	}
+
+	if bestMatch != nil {
+		return bestMatch, nil
 	}
 
 	return nil, fmt.Errorf("failed to find created AI configuration")
@@ -435,7 +453,8 @@ func (c *DokployClient) DeleteAI(aiID string) error {
 
 // GetAIModels retrieves available models from an AI provider.
 func (c *DokployClient) GetAIModels(apiURL, apiKey string) ([]AIModel, error) {
-	endpoint := fmt.Sprintf("ai.getModels?apiUrl=%s&apiKey=%s", apiURL, apiKey)
+	// URL encode the parameters to handle special characters safely
+	endpoint := fmt.Sprintf("ai.getModels?apiUrl=%s&apiKey=%s", url.QueryEscape(apiURL), url.QueryEscape(apiKey))
 	resp, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
