@@ -330,15 +330,16 @@ type Application struct {
 	CreateEnvFile bool   `json:"createEnvFile"`
 
 	// Runtime configuration (application.update)
-	AutoDeploy        bool   `json:"autoDeploy"`
-	Replicas          int    `json:"replicas"`
-	MemoryLimit       *int64 `json:"memoryLimit"`
-	MemoryReservation *int64 `json:"memoryReservation"`
-	CpuLimit          *int64 `json:"cpuLimit"`
-	CpuReservation    *int64 `json:"cpuReservation"`
-	Command           string `json:"command"`
-	Args              string `json:"args"`
-	EntryPoint        string `json:"entrypoint"`
+	// Note: The API accepts and returns memoryLimit/memoryReservation/cpuLimit/cpuReservation as strings
+	AutoDeploy        bool        `json:"autoDeploy"`
+	Replicas          int         `json:"replicas"`
+	MemoryLimit       json.Number `json:"memoryLimit"`
+	MemoryReservation json.Number `json:"memoryReservation"`
+	CpuLimit          json.Number `json:"cpuLimit"`
+	CpuReservation    json.Number `json:"cpuReservation"`
+	Command           string      `json:"command"`
+	Args              string      `json:"args"`
+	EntryPoint        string      `json:"entrypoint"`
 
 	// Docker Swarm configuration
 	HealthCheckSwarm     map[string]interface{}   `json:"healthCheckSwarm"`
@@ -477,17 +478,18 @@ func (c *DokployClient) UpdateApplicationGeneral(app Application) (*Application,
 	if app.Replicas > 0 {
 		payload["replicas"] = app.Replicas
 	}
-	if app.MemoryLimit != nil {
-		payload["memoryLimit"] = *app.MemoryLimit
+	// API expects memoryLimit/memoryReservation/cpuLimit/cpuReservation as strings
+	if app.MemoryLimit != "" {
+		payload["memoryLimit"] = string(app.MemoryLimit)
 	}
-	if app.MemoryReservation != nil {
-		payload["memoryReservation"] = *app.MemoryReservation
+	if app.MemoryReservation != "" {
+		payload["memoryReservation"] = string(app.MemoryReservation)
 	}
-	if app.CpuLimit != nil {
-		payload["cpuLimit"] = *app.CpuLimit
+	if app.CpuLimit != "" {
+		payload["cpuLimit"] = string(app.CpuLimit)
 	}
-	if app.CpuReservation != nil {
-		payload["cpuReservation"] = *app.CpuReservation
+	if app.CpuReservation != "" {
+		payload["cpuReservation"] = string(app.CpuReservation)
 	}
 
 	// String fields
@@ -2051,6 +2053,22 @@ func (c *DokployClient) GetSSHKey(id string) (*SSHKey, error) {
 	return &result, nil
 }
 
+func (c *DokployClient) UpdateSSHKey(id, name, description string) (*SSHKey, error) {
+	payload := map[string]string{
+		"sshKeyId":    id,
+		"name":        name,
+		"description": description,
+	}
+
+	_, err := c.doRequest("POST", "sshKey.update", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch the updated key to return current state
+	return c.GetSSHKey(id)
+}
+
 func (c *DokployClient) DeleteSSHKey(id string) error {
 	payload := map[string]string{
 		"sshKeyId": id,
@@ -2188,6 +2206,45 @@ type Mount struct {
 	ComposeID     string `json:"composeId"`
 }
 
+// GetMountsByService fetches all mounts for a service by calling the service-specific endpoint
+// and extracting the mounts array from the response.
+func (c *DokployClient) GetMountsByService(serviceID, serviceType string) ([]Mount, error) {
+	var endpoint string
+	switch serviceType {
+	case "application":
+		endpoint = fmt.Sprintf("application.one?applicationId=%s", serviceID)
+	case "postgres":
+		endpoint = fmt.Sprintf("postgres.one?postgresId=%s", serviceID)
+	case "mysql":
+		endpoint = fmt.Sprintf("mysql.one?mysqlId=%s", serviceID)
+	case "mariadb":
+		endpoint = fmt.Sprintf("mariadb.one?mariadbId=%s", serviceID)
+	case "mongo":
+		endpoint = fmt.Sprintf("mongo.one?mongoId=%s", serviceID)
+	case "redis":
+		endpoint = fmt.Sprintf("redis.one?redisId=%s", serviceID)
+	case "compose":
+		endpoint = fmt.Sprintf("compose.one?composeId=%s", serviceID)
+	default:
+		return nil, fmt.Errorf("unsupported service type: %s", serviceType)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the response to extract mounts
+	var serviceResponse struct {
+		Mounts []Mount `json:"mounts"`
+	}
+	if err := json.Unmarshal(resp, &serviceResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse service response: %w", err)
+	}
+
+	return serviceResponse.Mounts, nil
+}
+
 func (c *DokployClient) CreateMount(mount Mount) (*Mount, error) {
 	payload := map[string]interface{}{
 		"type":        mount.Type,
@@ -2218,6 +2275,43 @@ func (c *DokployClient) CreateMount(mount Mount) (*Mount, error) {
 	var result Mount
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
 		return &result, nil
+	}
+
+	// API returns boolean true on success - fetch the created mount from service
+	if string(resp) == "true" {
+		// Fetch all mounts for the service and find the one we just created
+		mounts, err := c.GetMountsByService(mount.ServiceID, mount.ServiceType)
+		if err != nil {
+			return nil, fmt.Errorf("mount created but failed to fetch mount details: %w", err)
+		}
+
+		// Find the mount matching our input (by type, mountPath, and optionally filePath/content)
+		// Return the most recently created one that matches
+		var bestMatch *Mount
+		for i := range mounts {
+			m := &mounts[i]
+			if m.Type == mount.Type && m.MountPath == mount.MountPath {
+				// For file mounts, also check filePath
+				if mount.Type == "file" && m.FilePath != mount.FilePath {
+					continue
+				}
+				// For bind mounts, check hostPath
+				if mount.Type == "bind" && m.HostPath != mount.HostPath {
+					continue
+				}
+				// For volume mounts, check volumeName
+				if mount.Type == "volume" && m.VolumeName != mount.VolumeName {
+					continue
+				}
+				bestMatch = m
+			}
+		}
+
+		if bestMatch != nil {
+			return bestMatch, nil
+		}
+
+		return nil, fmt.Errorf("mount created but could not find it in service mounts")
 	}
 
 	return nil, fmt.Errorf("failed to parse mount response or mount ID not set: %s", string(resp))
@@ -2264,16 +2358,13 @@ func (c *DokployClient) UpdateMount(mount Mount) (*Mount, error) {
 		payload["serviceType"] = mount.ServiceType
 	}
 
-	resp, err := c.doRequest("POST", "mounts.update", payload)
+	_, err := c.doRequest("POST", "mounts.update", payload)
 	if err != nil {
 		return nil, err
 	}
 
-	var result Mount
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	// Always fetch fresh data after update since the API returns stale data
+	return c.GetMount(mount.ID)
 }
 
 func (c *DokployClient) DeleteMount(id string) error {
@@ -2293,6 +2384,26 @@ type Port struct {
 	Protocol      string `json:"protocol"`    // tcp, udp
 	PublishMode   string `json:"publishMode"` // ingress, host
 	ApplicationID string `json:"applicationId"`
+}
+
+// GetPortsByApplication fetches all ports for an application by calling application.one
+// and extracting the ports array from the response.
+func (c *DokployClient) GetPortsByApplication(applicationID string) ([]Port, error) {
+	endpoint := fmt.Sprintf("application.one?applicationId=%s", applicationID)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the application response to extract ports
+	var appResponse struct {
+		Ports []Port `json:"ports"`
+	}
+	if err := json.Unmarshal(resp, &appResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse application response: %w", err)
+	}
+
+	return appResponse.Ports, nil
 }
 
 func (c *DokployClient) CreatePort(port Port) (*Port, error) {
@@ -2318,6 +2429,25 @@ func (c *DokployClient) CreatePort(port Port) (*Port, error) {
 	var result Port
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
 		return &result, nil
+	}
+
+	// API returns boolean true on success - fetch the created port from application
+	if string(resp) == "true" {
+		// Fetch all ports for the application and find the one we just created
+		ports, err := c.GetPortsByApplication(port.ApplicationID)
+		if err != nil {
+			return nil, fmt.Errorf("port created but failed to fetch port details: %w", err)
+		}
+
+		// Find the port matching our input (by publishedPort and targetPort)
+		for i := range ports {
+			p := &ports[i]
+			if p.PublishedPort == port.PublishedPort && p.TargetPort == port.TargetPort {
+				return p, nil
+			}
+		}
+
+		return nil, fmt.Errorf("port created but could not find it in application ports")
 	}
 
 	return nil, fmt.Errorf("failed to parse port response or port ID not set: %s", string(resp))
@@ -2351,16 +2481,13 @@ func (c *DokployClient) UpdatePort(port Port) (*Port, error) {
 		payload["publishMode"] = port.PublishMode
 	}
 
-	resp, err := c.doRequest("POST", "port.update", payload)
+	_, err := c.doRequest("POST", "port.update", payload)
 	if err != nil {
 		return nil, err
 	}
 
-	var result Port
-	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
+	// Always fetch fresh data after update since API may return stale data
+	return c.GetPort(port.ID)
 }
 
 func (c *DokployClient) DeletePort(id string) error {
@@ -2382,6 +2509,26 @@ type Redirect struct {
 	CreatedAt     string `json:"createdAt"`
 }
 
+// GetRedirectsByApplication fetches all redirects for an application by calling application.one
+// and extracting the redirects array from the response.
+func (c *DokployClient) GetRedirectsByApplication(applicationID string) ([]Redirect, error) {
+	endpoint := fmt.Sprintf("application.one?applicationId=%s", applicationID)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the application response to extract redirects
+	var appResponse struct {
+		Redirects []Redirect `json:"redirects"`
+	}
+	if err := json.Unmarshal(resp, &appResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse application response: %w", err)
+	}
+
+	return appResponse.Redirects, nil
+}
+
 func (c *DokployClient) CreateRedirect(redirect Redirect) (*Redirect, error) {
 	payload := map[string]interface{}{
 		"regex":         redirect.Regex,
@@ -2401,9 +2548,31 @@ func (c *DokployClient) CreateRedirect(redirect Redirect) (*Redirect, error) {
 		return &result, nil
 	}
 
-	// API returns boolean true on success - we don't have the ID
+	// API returns boolean true on success - fetch the created redirect from application
 	if string(resp) == "true" {
-		return nil, fmt.Errorf("redirect created but API did not return redirect details (no ID available)")
+		// Fetch all redirects for the application and find the one we just created
+		redirects, err := c.GetRedirectsByApplication(redirect.ApplicationID)
+		if err != nil {
+			return nil, fmt.Errorf("redirect created but failed to fetch redirect details: %w", err)
+		}
+
+		// Find the redirect matching our input (by regex, replacement, permanent)
+		// Return the most recently created one that matches
+		var bestMatch *Redirect
+		for i := range redirects {
+			r := &redirects[i]
+			if r.Regex == redirect.Regex && r.Replacement == redirect.Replacement && r.Permanent == redirect.Permanent {
+				if bestMatch == nil || r.CreatedAt > bestMatch.CreatedAt {
+					bestMatch = r
+				}
+			}
+		}
+
+		if bestMatch != nil {
+			return bestMatch, nil
+		}
+
+		return nil, fmt.Errorf("redirect created but could not find it in application redirects")
 	}
 
 	return nil, fmt.Errorf("unexpected API response format: %s", string(resp))
@@ -2436,9 +2605,15 @@ func (c *DokployClient) UpdateRedirect(redirect Redirect) (*Redirect, error) {
 		return nil, err
 	}
 
+	// Handle boolean response
+	if string(resp) == "true" {
+		return c.GetRedirect(redirect.ID)
+	}
+
 	var result Redirect
 	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, err
+		// Fallback to fetch
+		return c.GetRedirect(redirect.ID)
 	}
 	return &result, nil
 }
@@ -2538,9 +2713,15 @@ func (c *DokployClient) UpdateRegistry(registry Registry) (*Registry, error) {
 		return nil, err
 	}
 
+	// Handle boolean response - API returns true on success
+	if len(resp) == 0 || string(resp) == "true" {
+		return c.GetRegistry(registry.ID)
+	}
+
 	var result Registry
 	if err := json.Unmarshal(resp, &result); err != nil {
-		return nil, err
+		// If unmarshal fails, try fetching the registry directly
+		return c.GetRegistry(registry.ID)
 	}
 	return &result, nil
 }

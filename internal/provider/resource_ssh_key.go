@@ -42,6 +42,9 @@ func (r *SSHKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required: true,
@@ -122,11 +125,17 @@ func (r *SSHKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	state.Name = types.StringValue(key.Name)
-	state.Description = types.StringValue(key.Description)
-	// Private key usually returned hidden or masked?
-	// If API returns it, we can sync. If not, preserve state.
-	if key.PublicKey != "" {
-		state.PublicKey = types.StringValue(key.PublicKey)
+	// Preserve null if description is empty and state was null
+	if key.Description != "" || !state.Description.IsNull() {
+		state.Description = types.StringValue(key.Description)
+	}
+	// For private_key and public_key: preserve from state if set (to avoid drift from
+	// formatting differences), but fetch from API if state is empty (e.g., during import)
+	if state.PublicKey.IsNull() || state.PublicKey.ValueString() == "" {
+		state.PublicKey = types.StringValue(strings.TrimSpace(key.PublicKey))
+	}
+	if state.PrivateKey.IsNull() || state.PrivateKey.ValueString() == "" {
+		state.PrivateKey = types.StringValue(key.PrivateKey)
 	}
 
 	diags = resp.State.Set(ctx, state)
@@ -134,10 +143,36 @@ func (r *SSHKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 }
 
 func (r *SSHKeyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Keys usually force replace if content changes.
-	// We marked key fields as RequiresReplace.
-	// Name/Description updates might be supported via API but usually minor.
-	// Assuming no update for now.
+	var plan SSHKeyResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state SSHKeyResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Update the SSH key via API
+	_, err := r.client.UpdateSSHKey(
+		state.ID.ValueString(),
+		plan.Name.ValueString(),
+		plan.Description.ValueString(),
+	)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating SSH Key", err.Error())
+		return
+	}
+
+	// Keep the same ID from state, update name and description from plan
+	plan.ID = state.ID
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *SSHKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

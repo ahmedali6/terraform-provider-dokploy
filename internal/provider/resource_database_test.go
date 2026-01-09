@@ -33,6 +33,15 @@ func TestAccDatabaseResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
 			},
+			// Update testing - changing name should trigger replacement
+			{
+				Config: testAccDatabaseResourceConfig("test-db-project", "test-db-env", "updated-postgres-db", "postgres", "16"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_database.test", "name", "updated-postgres-db"),
+					resource.TestCheckResourceAttr("dokploy_database.test", "type", "postgres"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "id"),
+				),
+			},
 			// ImportState testing
 			{
 				ResourceName:            "dokploy_database.test",
@@ -66,6 +75,22 @@ func TestAccDatabaseResourceMySQL(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
 			},
+			// Update testing - changing name should trigger replacement
+			{
+				Config: testAccDatabaseResourceConfig("test-db-mysql-project", "test-db-mysql-env", "updated-mysql-db", "mysql", "8"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_database.test", "name", "updated-mysql-db"),
+					resource.TestCheckResourceAttr("dokploy_database.test", "type", "mysql"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "id"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:            "dokploy_database.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "project_id", "version", "app_name"},
+			},
 		},
 	})
 }
@@ -91,6 +116,22 @@ func TestAccDatabaseResourceMongoDB(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_database.test", "version", "7"),
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
+			},
+			// Update testing - changing name should trigger replacement
+			{
+				Config: testAccDatabaseResourceConfig("test-db-mongo-project", "test-db-mongo-env", "updated-mongo-db", "mongo", "7"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_database.test", "name", "updated-mongo-db"),
+					resource.TestCheckResourceAttr("dokploy_database.test", "type", "mongo"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "id"),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName:            "dokploy_database.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "project_id", "version", "app_name"},
 			},
 		},
 	})

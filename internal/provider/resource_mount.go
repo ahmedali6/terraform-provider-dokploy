@@ -155,13 +155,48 @@ func (r *MountResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	state.Type = types.StringValue(mount.Type)
-	state.HostPath = types.StringValue(mount.HostPath)
-	state.VolumeName = types.StringValue(mount.VolumeName)
 	state.MountPath = types.StringValue(mount.MountPath)
 	state.ServiceType = types.StringValue(mount.ServiceType)
-	state.FilePath = types.StringValue(mount.FilePath)
-	state.ServiceID = types.StringValue(mount.ServiceID)
-	// Don't update Content from API as it might not be returned
+
+	// Only set optional fields if they have values (avoid empty string for null)
+	if mount.HostPath != "" {
+		state.HostPath = types.StringValue(mount.HostPath)
+	} else {
+		state.HostPath = types.StringNull()
+	}
+
+	if mount.VolumeName != "" {
+		state.VolumeName = types.StringValue(mount.VolumeName)
+	} else {
+		state.VolumeName = types.StringNull()
+	}
+
+	if mount.FilePath != "" {
+		state.FilePath = types.StringValue(mount.FilePath)
+	} else {
+		state.FilePath = types.StringNull()
+	}
+
+	// Don't update Content from API as it might not be returned consistently
+	// Keep the value from state if it was set
+
+	// Derive ServiceID from the appropriate foreign key based on ServiceType
+	switch mount.ServiceType {
+	case "application":
+		state.ServiceID = types.StringValue(mount.ApplicationID)
+	case "postgres":
+		state.ServiceID = types.StringValue(mount.PostgresID)
+	case "mariadb":
+		state.ServiceID = types.StringValue(mount.MariadbID)
+	case "mongo":
+		state.ServiceID = types.StringValue(mount.MongoID)
+	case "mysql":
+		state.ServiceID = types.StringValue(mount.MysqlID)
+	case "redis":
+		state.ServiceID = types.StringValue(mount.RedisID)
+	case "compose":
+		state.ServiceID = types.StringValue(mount.ComposeID)
+	}
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -178,12 +213,22 @@ func (r *MountResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	mount := client.Mount{
 		ID:          plan.ID.ValueString(),
 		Type:        plan.Type.ValueString(),
-		HostPath:    plan.HostPath.ValueString(),
-		VolumeName:  plan.VolumeName.ValueString(),
-		Content:     plan.Content.ValueString(),
 		MountPath:   plan.MountPath.ValueString(),
 		ServiceType: plan.ServiceType.ValueString(),
-		FilePath:    plan.FilePath.ValueString(),
+	}
+
+	// Only include optional fields if they are set (not null)
+	if !plan.HostPath.IsNull() {
+		mount.HostPath = plan.HostPath.ValueString()
+	}
+	if !plan.VolumeName.IsNull() {
+		mount.VolumeName = plan.VolumeName.ValueString()
+	}
+	if !plan.Content.IsNull() {
+		mount.Content = plan.Content.ValueString()
+	}
+	if !plan.FilePath.IsNull() {
+		mount.FilePath = plan.FilePath.ValueString()
 	}
 
 	updatedMount, err := r.client.UpdateMount(mount)
@@ -193,11 +238,27 @@ func (r *MountResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 
 	plan.Type = types.StringValue(updatedMount.Type)
-	plan.HostPath = types.StringValue(updatedMount.HostPath)
-	plan.VolumeName = types.StringValue(updatedMount.VolumeName)
 	plan.MountPath = types.StringValue(updatedMount.MountPath)
 	plan.ServiceType = types.StringValue(updatedMount.ServiceType)
-	plan.FilePath = types.StringValue(updatedMount.FilePath)
+
+	// Handle optional fields - set to null if empty
+	if updatedMount.HostPath != "" {
+		plan.HostPath = types.StringValue(updatedMount.HostPath)
+	} else {
+		plan.HostPath = types.StringNull()
+	}
+
+	if updatedMount.VolumeName != "" {
+		plan.VolumeName = types.StringValue(updatedMount.VolumeName)
+	} else {
+		plan.VolumeName = types.StringNull()
+	}
+
+	if updatedMount.FilePath != "" {
+		plan.FilePath = types.StringValue(updatedMount.FilePath)
+	} else {
+		plan.FilePath = types.StringNull()
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

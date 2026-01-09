@@ -16,16 +16,13 @@ func TestAccPortResource(t *testing.T) {
 		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
 	}
 
-	t.Skip("Skipping due to Dokploy API limitation - port.create returns boolean true instead of created object. " +
-		"See: apps/dokploy/server/api/routers/port.ts line 21. The router needs to be changed to return the created port object.")
-
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccPortResourceConfig("test-port-project", "test-port-env", "test-port-app", 8080, 3000),
+				Config: testAccPortResourceConfig("test-port-project", "test-port-env", "test-port-app", 8080, 3000, "tcp"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_port.test", "published_port", "8080"),
 					resource.TestCheckResourceAttr("dokploy_port.test", "target_port", "3000"),
@@ -34,12 +31,13 @@ func TestAccPortResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_port.test", "application_id"),
 				),
 			},
-			// Update and Read testing
+			// Update testing - change target_port (in-place update, not replace)
 			{
-				Config: testAccPortResourceConfig("test-port-project", "test-port-env", "test-port-app", 9090, 4000),
+				Config: testAccPortResourceConfig("test-port-project", "test-port-env", "test-port-app", 8080, 4000, "tcp"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("dokploy_port.test", "published_port", "9090"),
+					resource.TestCheckResourceAttr("dokploy_port.test", "published_port", "8080"),
 					resource.TestCheckResourceAttr("dokploy_port.test", "target_port", "4000"),
+					resource.TestCheckResourceAttr("dokploy_port.test", "protocol", "tcp"),
 				),
 			},
 			// ImportState testing
@@ -52,7 +50,7 @@ func TestAccPortResource(t *testing.T) {
 	})
 }
 
-func testAccPortResourceConfig(projectName, envName, appName string, publishedPort, targetPort int) string {
+func testAccPortResourceConfig(projectName, envName, appName string, publishedPort, targetPort int, protocol string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -81,7 +79,7 @@ resource "dokploy_port" "test" {
   application_id = dokploy_application.test.id
   published_port = %d
   target_port    = %d
-  protocol       = "tcp"
+  protocol       = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, publishedPort, targetPort)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, publishedPort, targetPort, protocol)
 }

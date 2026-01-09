@@ -916,20 +916,16 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 		generalApp.Replicas = int(plan.Replicas.ValueInt64())
 	}
 	if !plan.MemoryLimit.IsNull() && !plan.MemoryLimit.IsUnknown() {
-		val := plan.MemoryLimit.ValueInt64()
-		generalApp.MemoryLimit = &val
+		generalApp.MemoryLimit = json.Number(fmt.Sprintf("%d", plan.MemoryLimit.ValueInt64()))
 	}
 	if !plan.MemoryReservation.IsNull() && !plan.MemoryReservation.IsUnknown() {
-		val := plan.MemoryReservation.ValueInt64()
-		generalApp.MemoryReservation = &val
+		generalApp.MemoryReservation = json.Number(fmt.Sprintf("%d", plan.MemoryReservation.ValueInt64()))
 	}
 	if !plan.CpuLimit.IsNull() && !plan.CpuLimit.IsUnknown() {
-		val := plan.CpuLimit.ValueInt64()
-		generalApp.CpuLimit = &val
+		generalApp.CpuLimit = json.Number(fmt.Sprintf("%d", plan.CpuLimit.ValueInt64()))
 	}
 	if !plan.CpuReservation.IsNull() && !plan.CpuReservation.IsUnknown() {
-		val := plan.CpuReservation.ValueInt64()
-		generalApp.CpuReservation = &val
+		generalApp.CpuReservation = json.Number(fmt.Sprintf("%d", plan.CpuReservation.ValueInt64()))
 	}
 	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
 		generalApp.Command = plan.Command.ValueString()
@@ -1664,17 +1660,25 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	if app.Replicas > 0 {
 		state.Replicas = types.Int64Value(int64(app.Replicas))
 	}
-	if app.MemoryLimit != nil {
-		state.MemoryLimit = types.Int64Value(*app.MemoryLimit)
+	if app.MemoryLimit != "" {
+		if val, err := app.MemoryLimit.Int64(); err == nil {
+			state.MemoryLimit = types.Int64Value(val)
+		}
 	}
-	if app.MemoryReservation != nil {
-		state.MemoryReservation = types.Int64Value(*app.MemoryReservation)
+	if app.MemoryReservation != "" {
+		if val, err := app.MemoryReservation.Int64(); err == nil {
+			state.MemoryReservation = types.Int64Value(val)
+		}
 	}
-	if app.CpuLimit != nil {
-		state.CpuLimit = types.Int64Value(*app.CpuLimit)
+	if app.CpuLimit != "" {
+		if val, err := app.CpuLimit.Int64(); err == nil {
+			state.CpuLimit = types.Int64Value(val)
+		}
 	}
-	if app.CpuReservation != nil {
-		state.CpuReservation = types.Int64Value(*app.CpuReservation)
+	if app.CpuReservation != "" {
+		if val, err := app.CpuReservation.Int64(); err == nil {
+			state.CpuReservation = types.Int64Value(val)
+		}
 	}
 	if app.Command != "" {
 		state.Command = types.StringValue(app.Command)

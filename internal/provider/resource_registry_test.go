@@ -28,7 +28,7 @@ func TestAccRegistryResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: testAccRegistryResourceConfig("test-registry-project", "test-registry-env", "test-registry-app", "docker.io", dockerUsername, dockerPassword),
+				Config: testAccRegistryResourceConfig("test-registry-project", "test-registry-env", "test-registry-app", "test-registry", "docker.io", dockerUsername, dockerPassword),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_registry.test", "registry_url", "docker.io"),
 					resource.TestCheckResourceAttr("dokploy_registry.test", "username", dockerUsername),
@@ -38,10 +38,11 @@ func TestAccRegistryResource(t *testing.T) {
 			},
 			// Update and Read testing - change registry name
 			{
-				Config: testAccRegistryResourceConfig("test-registry-project", "test-registry-env", "test-registry-app", "docker.io", dockerUsername, dockerPassword),
+				Config: testAccRegistryResourceConfig("test-registry-project", "test-registry-env", "test-registry-app", "updated-registry", "docker.io", dockerUsername, dockerPassword),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_registry.test", "registry_url", "docker.io"),
 					resource.TestCheckResourceAttr("dokploy_registry.test", "username", dockerUsername),
+					resource.TestCheckResourceAttr("dokploy_registry.test", "registry_name", "updated-registry"),
 				),
 			},
 			// ImportState testing
@@ -55,7 +56,7 @@ func TestAccRegistryResource(t *testing.T) {
 	})
 }
 
-func testAccRegistryResourceConfig(projectName, envName, appName, registryURL, username, password string) string {
+func testAccRegistryResourceConfig(projectName, envName, appName, registryName, registryURL, username, password string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -81,11 +82,11 @@ resource "dokploy_application" "test" {
 }
 
 resource "dokploy_registry" "test" {
-  registry_name = "test-registry"
+  registry_name = "%s"
   registry_url  = "%s"
   username      = "%s"
   password      = "%s"
   image_prefix  = "%s/test"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, registryURL, username, password, registryURL)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, registryName, registryURL, username, password, registryURL)
 }

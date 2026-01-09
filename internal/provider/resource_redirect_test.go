@@ -16,9 +16,6 @@ func TestAccRedirectResource(t *testing.T) {
 		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
 	}
 
-	t.Skip("Skipping due to Dokploy API limitation - redirect.create returns boolean true instead of created object. " +
-		"The router needs to be changed to return the created redirect object.")
-
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
