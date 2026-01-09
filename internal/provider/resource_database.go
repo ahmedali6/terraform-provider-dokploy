@@ -26,15 +26,16 @@ type DatabaseResource struct {
 }
 
 type DatabaseResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	ProjectID     types.String `tfsdk:"project_id"`
-	EnvironmentID types.String `tfsdk:"environment_id"`
-	Type          types.String `tfsdk:"type"`
-	Name          types.String `tfsdk:"name"`
-	Password      types.String `tfsdk:"password"`
-	Version       types.String `tfsdk:"version"`
-	InternalPort  types.Int64  `tfsdk:"internal_port"`
-	ExternalPort  types.Int64  `tfsdk:"external_port"`
+	ID              types.String `tfsdk:"id"`
+	ProjectID       types.String `tfsdk:"project_id"`
+	EnvironmentID   types.String `tfsdk:"environment_id"`
+	Type            types.String `tfsdk:"type"`
+	Name            types.String `tfsdk:"name"`
+	Password        types.String `tfsdk:"password"`
+	Version         types.String `tfsdk:"version"`
+	InternalPort    types.Int64  `tfsdk:"internal_port"`
+	ExternalPort    types.Int64  `tfsdk:"external_port"`
+	ApplicationName types.String `tfsdk:"app_name"`
 }
 
 func (r *DatabaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -90,6 +91,9 @@ func (r *DatabaseResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"external_port": schema.Int64Attribute{
 				Computed: true,
 			},
+			"app_name": schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -136,6 +140,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	plan.ID = types.StringValue(db.ID)
 	plan.InternalPort = types.Int64Value(db.InternalPort)
 	plan.ExternalPort = types.Int64Value(db.ExternalPort)
+	plan.ApplicationName = types.StringValue(db.AppName)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -173,6 +178,7 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	// InternalPort/ExternalPort mapping
 	state.InternalPort = types.Int64Value(db.InternalPort)
 	state.ExternalPort = types.Int64Value(db.ExternalPort)
+	state.ApplicationName = types.StringValue(db.AppName)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
