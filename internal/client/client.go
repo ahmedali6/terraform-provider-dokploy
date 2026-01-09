@@ -1935,14 +1935,19 @@ func (c *DokployClient) GetServer(id string) (*Server, error) {
 
 // --- GitHub Provider ---
 
+// GitProviderInfo contains the common git provider information nested in responses.
+type GitProviderInfo struct {
+	GitProviderId  string `json:"gitProviderId"`
+	Name           string `json:"name"`
+	ProviderType   string `json:"providerType"`
+	CreatedAt      string `json:"createdAt"`
+	OrganizationID string `json:"organizationId"`
+	UserID         string `json:"userId"`
+}
+
 type GithubProvider struct {
-	ID              string `json:"githubId"`
-	GitHubAppName   string `json:"gitHubAppName"`
-	GitHubInstallID int64  `json:"gitHubInstallationId"`
-	GitHubOwner     string `json:"gitHubOwner"`
-	GitHubOwnerType string `json:"gitHubOwnerType"`
-	OrganizationID  string `json:"organizationId"`
-	CreatedAt       string `json:"createdAt"`
+	ID          string          `json:"githubId"`
+	GitProvider GitProviderInfo `json:"gitProvider"`
 }
 
 func (c *DokployClient) ListGithubProviders() ([]GithubProvider, error) {
@@ -2904,6 +2909,14 @@ func (c *DokployClient) DeleteRedis(id string) error {
 
 // --- GitLab Provider ---
 
+// GitlabProviderListItem is the structure returned by the gitlabProviders list endpoint.
+type GitlabProviderListItem struct {
+	ID          string          `json:"gitlabId"`
+	GitProvider GitProviderInfo `json:"gitProvider"`
+	GitlabUrl   string          `json:"gitlabUrl"`
+}
+
+// GitlabProvider is the full structure used for create/update operations.
 type GitlabProvider struct {
 	ID             string `json:"gitlabId"`
 	GitProviderId  string `json:"gitProviderId"`
@@ -2979,8 +2992,9 @@ func (c *DokployClient) findGitlabProviderByName(name string) (*GitlabProvider, 
 		return nil, fmt.Errorf("gitlab provider created but failed to list providers: %w", err)
 	}
 	for _, p := range providers {
-		if p.Name == name {
-			return &p, nil
+		if p.GitProvider.Name == name {
+			// Fetch the full provider details
+			return c.GetGitlabProvider(p.ID)
 		}
 	}
 	return nil, fmt.Errorf("gitlab provider created but not found in list by name: %s", name)
@@ -3061,21 +3075,21 @@ func (c *DokployClient) DeleteGitProvider(gitProviderId string) error {
 	return err
 }
 
-func (c *DokployClient) ListGitlabProviders() ([]GitlabProvider, error) {
+func (c *DokployClient) ListGitlabProviders() ([]GitlabProviderListItem, error) {
 	resp, err := c.doRequest("GET", "gitlab.gitlabProviders", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try direct array response
-	var providers []GitlabProvider
+	var providers []GitlabProviderListItem
 	if err := json.Unmarshal(resp, &providers); err == nil {
 		return providers, nil
 	}
 
 	// Try wrapper format
 	var wrapper struct {
-		Providers []GitlabProvider `json:"providers"`
+		Providers []GitlabProviderListItem `json:"providers"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil {
 		return wrapper.Providers, nil
@@ -3083,7 +3097,7 @@ func (c *DokployClient) ListGitlabProviders() ([]GitlabProvider, error) {
 
 	// Try gitlabProviders key
 	var wrapper2 struct {
-		Providers []GitlabProvider `json:"gitlabProviders"`
+		Providers []GitlabProviderListItem `json:"gitlabProviders"`
 	}
 	if err := json.Unmarshal(resp, &wrapper2); err == nil {
 		return wrapper2.Providers, nil
@@ -3094,6 +3108,13 @@ func (c *DokployClient) ListGitlabProviders() ([]GitlabProvider, error) {
 
 // --- Bitbucket Provider ---
 
+// BitbucketProviderListItem is the structure returned by the bitbucketProviders list endpoint.
+type BitbucketProviderListItem struct {
+	ID          string          `json:"bitbucketId"`
+	GitProvider GitProviderInfo `json:"gitProvider"`
+}
+
+// BitbucketProvider is the full structure used for create/update operations.
 type BitbucketProvider struct {
 	ID                     string `json:"bitbucketId"`
 	GitProviderId          string `json:"gitProviderId"`
@@ -3159,8 +3180,9 @@ func (c *DokployClient) findBitbucketProviderByName(name string) (*BitbucketProv
 		return nil, fmt.Errorf("bitbucket provider created but failed to list providers: %w", err)
 	}
 	for _, p := range providers {
-		if p.Name == name {
-			return &p, nil
+		if p.GitProvider.Name == name {
+			// Fetch the full provider details
+			return c.GetBitbucketProvider(p.ID)
 		}
 	}
 	return nil, fmt.Errorf("bitbucket provider created but not found in list by name: %s", name)
@@ -3222,21 +3244,21 @@ func (c *DokployClient) UpdateBitbucketProvider(provider BitbucketProvider) (*Bi
 	return &result, nil
 }
 
-func (c *DokployClient) ListBitbucketProviders() ([]BitbucketProvider, error) {
+func (c *DokployClient) ListBitbucketProviders() ([]BitbucketProviderListItem, error) {
 	resp, err := c.doRequest("GET", "bitbucket.bitbucketProviders", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try direct array response
-	var providers []BitbucketProvider
+	var providers []BitbucketProviderListItem
 	if err := json.Unmarshal(resp, &providers); err == nil {
 		return providers, nil
 	}
 
 	// Try wrapper format
 	var wrapper struct {
-		Providers []BitbucketProvider `json:"providers"`
+		Providers []BitbucketProviderListItem `json:"providers"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil {
 		return wrapper.Providers, nil
@@ -3244,7 +3266,7 @@ func (c *DokployClient) ListBitbucketProviders() ([]BitbucketProvider, error) {
 
 	// Try bitbucketProviders key
 	var wrapper2 struct {
-		Providers []BitbucketProvider `json:"bitbucketProviders"`
+		Providers []BitbucketProviderListItem `json:"bitbucketProviders"`
 	}
 	if err := json.Unmarshal(resp, &wrapper2); err == nil {
 		return wrapper2.Providers, nil
@@ -3255,6 +3277,13 @@ func (c *DokployClient) ListBitbucketProviders() ([]BitbucketProvider, error) {
 
 // --- Gitea Provider ---
 
+// GiteaProviderListItem is the structure returned by the giteaProviders list endpoint.
+type GiteaProviderListItem struct {
+	ID          string          `json:"giteaId"`
+	GitProvider GitProviderInfo `json:"gitProvider"`
+}
+
+// GiteaProvider is the full structure used for create/update operations.
 type GiteaProvider struct {
 	ID                  string `json:"giteaId"`
 	GitProviderId       string `json:"gitProviderId"`
@@ -3340,8 +3369,9 @@ func (c *DokployClient) findGiteaProviderByName(name string) (*GiteaProvider, er
 		return nil, fmt.Errorf("gitea provider created but failed to list providers: %w", err)
 	}
 	for _, p := range providers {
-		if p.Name == name {
-			return &p, nil
+		if p.GitProvider.Name == name {
+			// Fetch the full provider details
+			return c.GetGiteaProvider(p.ID)
 		}
 	}
 	return nil, fmt.Errorf("gitea provider created but not found in list by name: %s", name)
@@ -3420,21 +3450,21 @@ func (c *DokployClient) UpdateGiteaProvider(provider GiteaProvider) (*GiteaProvi
 	return &result, nil
 }
 
-func (c *DokployClient) ListGiteaProviders() ([]GiteaProvider, error) {
+func (c *DokployClient) ListGiteaProviders() ([]GiteaProviderListItem, error) {
 	resp, err := c.doRequest("GET", "gitea.giteaProviders", nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try direct array response
-	var providers []GiteaProvider
+	var providers []GiteaProviderListItem
 	if err := json.Unmarshal(resp, &providers); err == nil {
 		return providers, nil
 	}
 
 	// Try wrapper format
 	var wrapper struct {
-		Providers []GiteaProvider `json:"providers"`
+		Providers []GiteaProviderListItem `json:"providers"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil {
 		return wrapper.Providers, nil
@@ -3442,7 +3472,7 @@ func (c *DokployClient) ListGiteaProviders() ([]GiteaProvider, error) {
 
 	// Try giteaProviders key
 	var wrapper2 struct {
-		Providers []GiteaProvider `json:"giteaProviders"`
+		Providers []GiteaProviderListItem `json:"giteaProviders"`
 	}
 	if err := json.Unmarshal(resp, &wrapper2); err == nil {
 		return wrapper2.Providers, nil

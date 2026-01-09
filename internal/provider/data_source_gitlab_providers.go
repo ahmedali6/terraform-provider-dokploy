@@ -28,8 +28,8 @@ type GitlabProviderDataModel struct {
 	ID             types.String `tfsdk:"id"`
 	GitProviderId  types.String `tfsdk:"git_provider_id"`
 	Name           types.String `tfsdk:"name"`
+	ProviderType   types.String `tfsdk:"provider_type"`
 	GitlabUrl      types.String `tfsdk:"gitlab_url"`
-	GroupName      types.String `tfsdk:"group_name"`
 	OrganizationID types.String `tfsdk:"organization_id"`
 	CreatedAt      types.String `tfsdk:"created_at"`
 }
@@ -59,13 +59,13 @@ func (d *GitlabProvidersDataSource) Schema(_ context.Context, _ datasource.Schem
 							Computed:    true,
 							Description: "The name of the GitLab provider.",
 						},
+						"provider_type": schema.StringAttribute{
+							Computed:    true,
+							Description: "The type of provider (gitlab).",
+						},
 						"gitlab_url": schema.StringAttribute{
 							Computed:    true,
 							Description: "The GitLab instance URL.",
-						},
-						"group_name": schema.StringAttribute{
-							Computed:    true,
-							Description: "The GitLab group name.",
 						},
 						"organization_id": schema.StringAttribute{
 							Computed:    true,
@@ -113,12 +113,12 @@ func (d *GitlabProvidersDataSource) Read(ctx context.Context, req datasource.Rea
 	for _, provider := range providers {
 		providerModel := GitlabProviderDataModel{
 			ID:             types.StringValue(provider.ID),
-			GitProviderId:  types.StringValue(provider.GitProviderId),
-			Name:           types.StringValue(provider.Name),
+			GitProviderId:  types.StringValue(provider.GitProvider.GitProviderId),
+			Name:           types.StringValue(provider.GitProvider.Name),
+			ProviderType:   types.StringValue(provider.GitProvider.ProviderType),
 			GitlabUrl:      types.StringValue(provider.GitlabUrl),
-			GroupName:      types.StringValue(provider.GroupName),
-			OrganizationID: types.StringValue(provider.OrganizationID),
-			CreatedAt:      types.StringValue(provider.CreatedAt),
+			OrganizationID: types.StringValue(provider.GitProvider.OrganizationID),
+			CreatedAt:      types.StringValue(provider.GitProvider.CreatedAt),
 		}
 		state.Providers = append(state.Providers, providerModel)
 	}

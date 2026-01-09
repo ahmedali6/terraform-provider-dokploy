@@ -24,10 +24,9 @@ Fetches the list of Bitbucket providers configured in Dokploy.
 
 Read-Only:
 
-- `bitbucket_username` (String) The Bitbucket username.
-- `bitbucket_workspace_name` (String) The Bitbucket workspace name.
 - `created_at` (String) The creation timestamp of the provider.
 - `git_provider_id` (String) The git provider ID.
 - `id` (String) The unique identifier (bitbucketId) of the Bitbucket provider.
 - `name` (String) The name of the Bitbucket provider.
 - `organization_id` (String) The Dokploy organization ID this provider belongs to.
+- `provider_type` (String) The type of provider (bitbucket).

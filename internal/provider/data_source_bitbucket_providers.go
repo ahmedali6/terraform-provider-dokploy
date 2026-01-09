@@ -25,13 +25,12 @@ type BitbucketProvidersDataSourceModel struct {
 }
 
 type BitbucketProviderDataModel struct {
-	ID                     types.String `tfsdk:"id"`
-	GitProviderId          types.String `tfsdk:"git_provider_id"`
-	Name                   types.String `tfsdk:"name"`
-	BitbucketUsername      types.String `tfsdk:"bitbucket_username"`
-	BitbucketWorkspaceName types.String `tfsdk:"bitbucket_workspace_name"`
-	OrganizationID         types.String `tfsdk:"organization_id"`
-	CreatedAt              types.String `tfsdk:"created_at"`
+	ID             types.String `tfsdk:"id"`
+	GitProviderId  types.String `tfsdk:"git_provider_id"`
+	Name           types.String `tfsdk:"name"`
+	ProviderType   types.String `tfsdk:"provider_type"`
+	OrganizationID types.String `tfsdk:"organization_id"`
+	CreatedAt      types.String `tfsdk:"created_at"`
 }
 
 func (d *BitbucketProvidersDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -59,13 +58,9 @@ func (d *BitbucketProvidersDataSource) Schema(_ context.Context, _ datasource.Sc
 							Computed:    true,
 							Description: "The name of the Bitbucket provider.",
 						},
-						"bitbucket_username": schema.StringAttribute{
+						"provider_type": schema.StringAttribute{
 							Computed:    true,
-							Description: "The Bitbucket username.",
-						},
-						"bitbucket_workspace_name": schema.StringAttribute{
-							Computed:    true,
-							Description: "The Bitbucket workspace name.",
+							Description: "The type of provider (bitbucket).",
 						},
 						"organization_id": schema.StringAttribute{
 							Computed:    true,
@@ -112,13 +107,12 @@ func (d *BitbucketProvidersDataSource) Read(ctx context.Context, req datasource.
 
 	for _, provider := range providers {
 		providerModel := BitbucketProviderDataModel{
-			ID:                     types.StringValue(provider.ID),
-			GitProviderId:          types.StringValue(provider.GitProviderId),
-			Name:                   types.StringValue(provider.Name),
-			BitbucketUsername:      types.StringValue(provider.BitbucketUsername),
-			BitbucketWorkspaceName: types.StringValue(provider.BitbucketWorkspaceName),
-			OrganizationID:         types.StringValue(provider.OrganizationID),
-			CreatedAt:              types.StringValue(provider.CreatedAt),
+			ID:             types.StringValue(provider.ID),
+			GitProviderId:  types.StringValue(provider.GitProvider.GitProviderId),
+			Name:           types.StringValue(provider.GitProvider.Name),
+			ProviderType:   types.StringValue(provider.GitProvider.ProviderType),
+			OrganizationID: types.StringValue(provider.GitProvider.OrganizationID),
+			CreatedAt:      types.StringValue(provider.GitProvider.CreatedAt),
 		}
 		state.Providers = append(state.Providers, providerModel)
 	}

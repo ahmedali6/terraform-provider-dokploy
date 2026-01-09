@@ -26,9 +26,7 @@ Read-Only:
 
 - `created_at` (String) The creation timestamp of the provider.
 - `git_provider_id` (String) The git provider ID.
-- `gitea_url` (String) The Gitea instance URL.
-- `gitea_username` (String) The Gitea username.
 - `id` (String) The unique identifier (giteaId) of the Gitea provider.
 - `name` (String) The name of the Gitea provider.
 - `organization_id` (String) The Dokploy organization ID this provider belongs to.
-- `organization_name` (String) The Gitea organization name.
+- `provider_type` (String) The type of provider (gitea).

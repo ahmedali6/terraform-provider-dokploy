@@ -27,7 +27,7 @@ Read-Only:
 - `created_at` (String) The creation timestamp of the provider.
 - `git_provider_id` (String) The git provider ID.
 - `gitlab_url` (String) The GitLab instance URL.
-- `group_name` (String) The GitLab group name.
 - `id` (String) The unique identifier (gitlabId) of the GitLab provider.
 - `name` (String) The name of the GitLab provider.
 - `organization_id` (String) The Dokploy organization ID this provider belongs to.
+- `provider_type` (String) The type of provider (gitlab).

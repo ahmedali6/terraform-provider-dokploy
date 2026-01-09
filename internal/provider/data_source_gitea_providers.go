@@ -25,14 +25,12 @@ type GiteaProvidersDataSourceModel struct {
 }
 
 type GiteaProviderDataModel struct {
-	ID               types.String `tfsdk:"id"`
-	GitProviderId    types.String `tfsdk:"git_provider_id"`
-	Name             types.String `tfsdk:"name"`
-	GiteaUrl         types.String `tfsdk:"gitea_url"`
-	GiteaUsername    types.String `tfsdk:"gitea_username"`
-	OrganizationName types.String `tfsdk:"organization_name"`
-	OrganizationID   types.String `tfsdk:"organization_id"`
-	CreatedAt        types.String `tfsdk:"created_at"`
+	ID             types.String `tfsdk:"id"`
+	GitProviderId  types.String `tfsdk:"git_provider_id"`
+	Name           types.String `tfsdk:"name"`
+	ProviderType   types.String `tfsdk:"provider_type"`
+	OrganizationID types.String `tfsdk:"organization_id"`
+	CreatedAt      types.String `tfsdk:"created_at"`
 }
 
 func (d *GiteaProvidersDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -60,17 +58,9 @@ func (d *GiteaProvidersDataSource) Schema(_ context.Context, _ datasource.Schema
 							Computed:    true,
 							Description: "The name of the Gitea provider.",
 						},
-						"gitea_url": schema.StringAttribute{
+						"provider_type": schema.StringAttribute{
 							Computed:    true,
-							Description: "The Gitea instance URL.",
-						},
-						"gitea_username": schema.StringAttribute{
-							Computed:    true,
-							Description: "The Gitea username.",
-						},
-						"organization_name": schema.StringAttribute{
-							Computed:    true,
-							Description: "The Gitea organization name.",
+							Description: "The type of provider (gitea).",
 						},
 						"organization_id": schema.StringAttribute{
 							Computed:    true,
@@ -117,14 +107,12 @@ func (d *GiteaProvidersDataSource) Read(ctx context.Context, req datasource.Read
 
 	for _, provider := range providers {
 		providerModel := GiteaProviderDataModel{
-			ID:               types.StringValue(provider.ID),
-			GitProviderId:    types.StringValue(provider.GitProviderId),
-			Name:             types.StringValue(provider.Name),
-			GiteaUrl:         types.StringValue(provider.GiteaUrl),
-			GiteaUsername:    types.StringValue(provider.GiteaUsername),
-			OrganizationName: types.StringValue(provider.OrganizationName),
-			OrganizationID:   types.StringValue(provider.OrganizationID),
-			CreatedAt:        types.StringValue(provider.CreatedAt),
+			ID:             types.StringValue(provider.ID),
+			GitProviderId:  types.StringValue(provider.GitProvider.GitProviderId),
+			Name:           types.StringValue(provider.GitProvider.Name),
+			ProviderType:   types.StringValue(provider.GitProvider.ProviderType),
+			OrganizationID: types.StringValue(provider.GitProvider.OrganizationID),
+			CreatedAt:      types.StringValue(provider.GitProvider.CreatedAt),
 		}
 		state.Providers = append(state.Providers, providerModel)
 	}

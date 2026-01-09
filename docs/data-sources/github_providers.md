@@ -3,12 +3,12 @@
 page_title: "dokploy_github_providers Data Source - dokploy"
 subcategory: ""
 description: |-
-  Fetches the list of GitHub App installations configured in Dokploy.
+  Fetches the list of GitHub providers configured in Dokploy.
 ---
 
 # dokploy_github_providers (Data Source)
 
-Fetches the list of GitHub App installations configured in Dokploy.
+Fetches the list of GitHub providers configured in Dokploy.
 
 
 
@@ -17,17 +17,16 @@ Fetches the list of GitHub App installations configured in Dokploy.
 
 ### Read-Only
 
-- `providers` (Attributes List) List of GitHub providers (App installations). (see [below for nested schema](#nestedatt--providers))
+- `providers` (Attributes List) List of GitHub providers. (see [below for nested schema](#nestedatt--providers))
 
 <a id="nestedatt--providers"></a>
 ### Nested Schema for `providers`
 
 Read-Only:
 
-- `app_name` (String) The name of the GitHub App.
 - `created_at` (String) The creation timestamp of the provider.
+- `git_provider_id` (String) The git provider ID.
 - `id` (String) The unique identifier (githubId) of the GitHub provider.
-- `installation_id` (Number) The GitHub App installation ID.
+- `name` (String) The name of the GitHub provider.
 - `organization_id` (String) The Dokploy organization ID this provider belongs to.
-- `owner` (String) The GitHub owner (user or organization) where the app is installed.
-- `owner_type` (String) The type of owner: 'User' or 'Organization'.
+- `provider_type` (String) The type of provider (github).

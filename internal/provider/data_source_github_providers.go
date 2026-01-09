@@ -26,10 +26,9 @@ type GithubProvidersDataSourceModel struct {
 
 type GithubProviderModel struct {
 	ID             types.String `tfsdk:"id"`
-	AppName        types.String `tfsdk:"app_name"`
-	InstallationID types.Int64  `tfsdk:"installation_id"`
-	Owner          types.String `tfsdk:"owner"`
-	OwnerType      types.String `tfsdk:"owner_type"`
+	GitProviderId  types.String `tfsdk:"git_provider_id"`
+	Name           types.String `tfsdk:"name"`
+	ProviderType   types.String `tfsdk:"provider_type"`
 	OrganizationID types.String `tfsdk:"organization_id"`
 	CreatedAt      types.String `tfsdk:"created_at"`
 }
@@ -40,32 +39,28 @@ func (d *GithubProvidersDataSource) Metadata(_ context.Context, req datasource.M
 
 func (d *GithubProvidersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Fetches the list of GitHub App installations configured in Dokploy.",
+		Description: "Fetches the list of GitHub providers configured in Dokploy.",
 		Attributes: map[string]schema.Attribute{
 			"providers": schema.ListNestedAttribute{
 				Computed:    true,
-				Description: "List of GitHub providers (App installations).",
+				Description: "List of GitHub providers.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.StringAttribute{
 							Computed:    true,
 							Description: "The unique identifier (githubId) of the GitHub provider.",
 						},
-						"app_name": schema.StringAttribute{
+						"git_provider_id": schema.StringAttribute{
 							Computed:    true,
-							Description: "The name of the GitHub App.",
+							Description: "The git provider ID.",
 						},
-						"installation_id": schema.Int64Attribute{
+						"name": schema.StringAttribute{
 							Computed:    true,
-							Description: "The GitHub App installation ID.",
+							Description: "The name of the GitHub provider.",
 						},
-						"owner": schema.StringAttribute{
+						"provider_type": schema.StringAttribute{
 							Computed:    true,
-							Description: "The GitHub owner (user or organization) where the app is installed.",
-						},
-						"owner_type": schema.StringAttribute{
-							Computed:    true,
-							Description: "The type of owner: 'User' or 'Organization'.",
+							Description: "The type of provider (github).",
 						},
 						"organization_id": schema.StringAttribute{
 							Computed:    true,
@@ -113,12 +108,11 @@ func (d *GithubProvidersDataSource) Read(ctx context.Context, req datasource.Rea
 	for _, provider := range providers {
 		providerModel := GithubProviderModel{
 			ID:             types.StringValue(provider.ID),
-			AppName:        types.StringValue(provider.GitHubAppName),
-			InstallationID: types.Int64Value(provider.GitHubInstallID),
-			Owner:          types.StringValue(provider.GitHubOwner),
-			OwnerType:      types.StringValue(provider.GitHubOwnerType),
-			OrganizationID: types.StringValue(provider.OrganizationID),
-			CreatedAt:      types.StringValue(provider.CreatedAt),
+			GitProviderId:  types.StringValue(provider.GitProvider.GitProviderId),
+			Name:           types.StringValue(provider.GitProvider.Name),
+			ProviderType:   types.StringValue(provider.GitProvider.ProviderType),
+			OrganizationID: types.StringValue(provider.GitProvider.OrganizationID),
+			CreatedAt:      types.StringValue(provider.GitProvider.CreatedAt),
 		}
 		state.Providers = append(state.Providers, providerModel)
 	}
