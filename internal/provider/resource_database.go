@@ -140,7 +140,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	plan.ID = types.StringValue(db.ID)
 	plan.InternalPort = types.Int64Value(db.InternalPort)
 	plan.ExternalPort = types.Int64Value(db.ExternalPort)
-	plan.ApplicationName = types.StringValue(db.AppName)
+	plan.AppName = types.StringValue(db.AppName)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -178,7 +178,7 @@ func (r *DatabaseResource) Read(ctx context.Context, req resource.ReadRequest, r
 	// InternalPort/ExternalPort mapping
 	state.InternalPort = types.Int64Value(db.InternalPort)
 	state.ExternalPort = types.Int64Value(db.ExternalPort)
-	state.ApplicationName = types.StringValue(db.AppName)
+	state.AppName = types.StringValue(db.AppName)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
