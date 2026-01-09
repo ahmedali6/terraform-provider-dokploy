@@ -1014,7 +1014,7 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 		createdComp.ServerID = comp.ServerID
 	}
 
-	// 2. Update with Git configuration if necessary
+	// 2. Update with Git configuration if necessary.
 	updatePayload := map[string]interface{}{
 		"composeId":  createdComp.ID,
 		"name":       comp.Name,
@@ -1022,6 +1022,12 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 		"autoDeploy": comp.AutoDeploy,
 	}
 
+	// Description.
+	if comp.Description != "" {
+		updatePayload["description"] = comp.Description
+	}
+
+	// Custom Git provider settings.
 	if comp.CustomGitUrl != "" {
 		updatePayload["customGitUrl"] = comp.CustomGitUrl
 	}
@@ -1031,11 +1037,96 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 	if comp.CustomGitSSHKeyId != "" {
 		updatePayload["customGitSSHKeyId"] = comp.CustomGitSSHKeyId
 	}
+	if comp.CustomGitBuildPath != "" {
+		updatePayload["customGitBuildPath"] = comp.CustomGitBuildPath
+	}
 	if comp.ComposePath != "" {
 		updatePayload["composePath"] = comp.ComposePath
 	}
 	if comp.ComposeFile != "" {
 		updatePayload["composeFile"] = comp.ComposeFile
+	}
+	if comp.EnableSubmodules {
+		updatePayload["enableSubmodules"] = comp.EnableSubmodules
+	}
+
+	// GitHub provider settings.
+	if comp.GithubId != "" {
+		updatePayload["githubId"] = comp.GithubId
+	}
+	if comp.Repository != "" {
+		updatePayload["repository"] = comp.Repository
+	}
+	if comp.Owner != "" {
+		updatePayload["owner"] = comp.Owner
+	}
+	if comp.Branch != "" {
+		updatePayload["branch"] = comp.Branch
+	}
+	if comp.TriggerType != "" {
+		updatePayload["triggerType"] = comp.TriggerType
+	}
+
+	// GitLab provider settings.
+	if comp.GitlabId != "" {
+		updatePayload["gitlabId"] = comp.GitlabId
+	}
+	if comp.GitlabProjectId > 0 {
+		updatePayload["gitlabProjectId"] = comp.GitlabProjectId
+	}
+	if comp.GitlabRepository != "" {
+		updatePayload["gitlabRepository"] = comp.GitlabRepository
+	}
+	if comp.GitlabOwner != "" {
+		updatePayload["gitlabOwner"] = comp.GitlabOwner
+	}
+	if comp.GitlabBranch != "" {
+		updatePayload["gitlabBranch"] = comp.GitlabBranch
+	}
+	if comp.GitlabBuildPath != "" {
+		updatePayload["gitlabBuildPath"] = comp.GitlabBuildPath
+	}
+	if comp.GitlabPathNamespace != "" {
+		updatePayload["gitlabPathNamespace"] = comp.GitlabPathNamespace
+	}
+
+	// Bitbucket provider settings.
+	if comp.BitbucketId != "" {
+		updatePayload["bitbucketId"] = comp.BitbucketId
+	}
+	if comp.BitbucketRepository != "" {
+		updatePayload["bitbucketRepository"] = comp.BitbucketRepository
+	}
+	if comp.BitbucketOwner != "" {
+		updatePayload["bitbucketOwner"] = comp.BitbucketOwner
+	}
+	if comp.BitbucketBranch != "" {
+		updatePayload["bitbucketBranch"] = comp.BitbucketBranch
+	}
+	if comp.BitbucketBuildPath != "" {
+		updatePayload["bitbucketBuildPath"] = comp.BitbucketBuildPath
+	}
+
+	// Gitea provider settings.
+	if comp.GiteaId != "" {
+		updatePayload["giteaId"] = comp.GiteaId
+	}
+	if comp.GiteaRepository != "" {
+		updatePayload["giteaRepository"] = comp.GiteaRepository
+	}
+	if comp.GiteaOwner != "" {
+		updatePayload["giteaOwner"] = comp.GiteaOwner
+	}
+	if comp.GiteaBranch != "" {
+		updatePayload["giteaBranch"] = comp.GiteaBranch
+	}
+	if comp.GiteaBuildPath != "" {
+		updatePayload["giteaBuildPath"] = comp.GiteaBuildPath
+	}
+
+	// Environment variables.
+	if comp.Env != "" {
+		updatePayload["env"] = comp.Env
 	}
 
 	if comp.SourceType == "" {
@@ -1103,6 +1194,12 @@ func (c *DokployClient) UpdateCompose(comp Compose) (*Compose, error) {
 		"autoDeploy": comp.AutoDeploy,
 	}
 
+	// Description.
+	if comp.Description != "" {
+		payload["description"] = comp.Description
+	}
+
+	// Custom Git provider settings.
 	if comp.CustomGitUrl != "" {
 		payload["customGitUrl"] = comp.CustomGitUrl
 	}
@@ -1112,11 +1209,96 @@ func (c *DokployClient) UpdateCompose(comp Compose) (*Compose, error) {
 	if comp.CustomGitSSHKeyId != "" {
 		payload["customGitSSHKeyId"] = comp.CustomGitSSHKeyId
 	}
+	if comp.CustomGitBuildPath != "" {
+		payload["customGitBuildPath"] = comp.CustomGitBuildPath
+	}
 	if comp.ComposePath != "" {
 		payload["composePath"] = comp.ComposePath
 	}
 	if comp.ComposeFile != "" {
 		payload["composeFile"] = comp.ComposeFile
+	}
+	if comp.EnableSubmodules {
+		payload["enableSubmodules"] = comp.EnableSubmodules
+	}
+
+	// GitHub provider settings.
+	if comp.GithubId != "" {
+		payload["githubId"] = comp.GithubId
+	}
+	if comp.Repository != "" {
+		payload["repository"] = comp.Repository
+	}
+	if comp.Owner != "" {
+		payload["owner"] = comp.Owner
+	}
+	if comp.Branch != "" {
+		payload["branch"] = comp.Branch
+	}
+	if comp.TriggerType != "" {
+		payload["triggerType"] = comp.TriggerType
+	}
+
+	// GitLab provider settings.
+	if comp.GitlabId != "" {
+		payload["gitlabId"] = comp.GitlabId
+	}
+	if comp.GitlabProjectId > 0 {
+		payload["gitlabProjectId"] = comp.GitlabProjectId
+	}
+	if comp.GitlabRepository != "" {
+		payload["gitlabRepository"] = comp.GitlabRepository
+	}
+	if comp.GitlabOwner != "" {
+		payload["gitlabOwner"] = comp.GitlabOwner
+	}
+	if comp.GitlabBranch != "" {
+		payload["gitlabBranch"] = comp.GitlabBranch
+	}
+	if comp.GitlabBuildPath != "" {
+		payload["gitlabBuildPath"] = comp.GitlabBuildPath
+	}
+	if comp.GitlabPathNamespace != "" {
+		payload["gitlabPathNamespace"] = comp.GitlabPathNamespace
+	}
+
+	// Bitbucket provider settings.
+	if comp.BitbucketId != "" {
+		payload["bitbucketId"] = comp.BitbucketId
+	}
+	if comp.BitbucketRepository != "" {
+		payload["bitbucketRepository"] = comp.BitbucketRepository
+	}
+	if comp.BitbucketOwner != "" {
+		payload["bitbucketOwner"] = comp.BitbucketOwner
+	}
+	if comp.BitbucketBranch != "" {
+		payload["bitbucketBranch"] = comp.BitbucketBranch
+	}
+	if comp.BitbucketBuildPath != "" {
+		payload["bitbucketBuildPath"] = comp.BitbucketBuildPath
+	}
+
+	// Gitea provider settings.
+	if comp.GiteaId != "" {
+		payload["giteaId"] = comp.GiteaId
+	}
+	if comp.GiteaRepository != "" {
+		payload["giteaRepository"] = comp.GiteaRepository
+	}
+	if comp.GiteaOwner != "" {
+		payload["giteaOwner"] = comp.GiteaOwner
+	}
+	if comp.GiteaBranch != "" {
+		payload["giteaBranch"] = comp.GiteaBranch
+	}
+	if comp.GiteaBuildPath != "" {
+		payload["giteaBuildPath"] = comp.GiteaBuildPath
+	}
+
+	// Environment variables.
+	if comp.Env != "" {
+		payload["env"] = comp.Env
 	}
 
 	if comp.EnvironmentID != "" {
@@ -1181,7 +1363,6 @@ func (c *DokployClient) CreateDatabase(projectID, environmentID, name, dbType, p
 		"environmentId":    environmentID,
 		"name":             name,
 		"appName":          name,
-		"databaseName":     name,
 		"databasePassword": password,
 		"dockerImage":      dockerImage,
 	}
@@ -1189,16 +1370,20 @@ func (c *DokployClient) CreateDatabase(projectID, environmentID, name, dbType, p
 	switch dbType {
 	case "postgres":
 		endpoint = "postgres.create"
+		payload["databaseName"] = name
 		payload["databaseUser"] = "postgres"
 	case "mysql":
 		endpoint = "mysql.create"
+		payload["databaseName"] = name
 		payload["databaseUser"] = "root"
-		payload["databaseRootPassword"] = password // MySQL requires separate root password
+		payload["databaseRootPassword"] = password // MySQL requires separate root password.
 	case "mariadb":
 		endpoint = "mariadb.create"
+		payload["databaseName"] = name
 		payload["databaseUser"] = "root"
-		payload["databaseRootPassword"] = password // MariaDB requires separate root password
+		payload["databaseRootPassword"] = password // MariaDB requires separate root password.
 	case "mongo":
+		// MongoDB does NOT accept databaseName in create API.
 		endpoint = "mongo.create"
 		payload["databaseUser"] = "mongo"
 	case "redis":
@@ -2686,9 +2871,7 @@ func (c *DokployClient) CreateServer(server Server) (*Server, error) {
 	if server.Description != "" {
 		payload["description"] = server.Description
 	}
-	if server.Command != "" {
-		payload["command"] = server.Command
-	}
+	// Note: command is NOT accepted by server.create API, only by server.update.
 
 	resp, err := c.doRequest("POST", "server.create", payload)
 	if err != nil {
@@ -2764,6 +2947,10 @@ type Redis struct {
 }
 
 // CreateRedis creates a new Redis database instance.
+// Note: The redis.create API only accepts: name, appName, databasePassword,
+// dockerImage, environmentId, description, serverId. Other fields like
+// command, env, memoryReservation, memoryLimit, cpuReservation, cpuLimit,
+// externalPort, and replicas must be set via redis.update after creation.
 func (c *DokployClient) CreateRedis(redis Redis) (*Redis, error) {
 	payload := map[string]interface{}{
 		"name":             redis.Name,
@@ -2772,7 +2959,7 @@ func (c *DokployClient) CreateRedis(redis Redis) (*Redis, error) {
 		"environmentId":    redis.EnvironmentID,
 	}
 
-	// Include optional fields if set.
+	// Include optional fields accepted by the create API.
 	if redis.DockerImage != "" {
 		payload["dockerImage"] = redis.DockerImage
 	}
@@ -2781,30 +2968,6 @@ func (c *DokployClient) CreateRedis(redis Redis) (*Redis, error) {
 	}
 	if redis.ServerID != "" {
 		payload["serverId"] = redis.ServerID
-	}
-	if redis.Command != "" {
-		payload["command"] = redis.Command
-	}
-	if redis.Env != "" {
-		payload["env"] = redis.Env
-	}
-	if redis.MemoryReservation != "" {
-		payload["memoryReservation"] = redis.MemoryReservation
-	}
-	if redis.MemoryLimit != "" {
-		payload["memoryLimit"] = redis.MemoryLimit
-	}
-	if redis.CPUReservation != "" {
-		payload["cpuReservation"] = redis.CPUReservation
-	}
-	if redis.CPULimit != "" {
-		payload["cpuLimit"] = redis.CPULimit
-	}
-	if redis.ExternalPort > 0 {
-		payload["externalPort"] = redis.ExternalPort
-	}
-	if redis.Replicas > 0 {
-		payload["replicas"] = redis.Replicas
 	}
 
 	resp, err := c.doRequest("POST", "redis.create", payload)
