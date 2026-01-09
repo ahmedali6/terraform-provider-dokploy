@@ -42,6 +42,7 @@ resource "dokploy_database" "postgres" {
 
 ### Read-Only
 
+- `app_name` (String)
 - `external_port` (Number)
 - `id` (String) The ID of this resource.
 - `internal_port` (Number)
