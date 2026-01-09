@@ -30,6 +30,7 @@ func TestAccDatabaseResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "id"),
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "project_id"),
 					resource.TestCheckResourceAttrSet("dokploy_database.test", "environment_id"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
 			},
 			// ImportState testing
@@ -37,7 +38,7 @@ func TestAccDatabaseResource(t *testing.T) {
 				ResourceName:            "dokploy_database.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"password", "project_id", "version"}, // project_id, version sometimes not returned on import
+				ImportStateVerifyIgnore: []string{"password", "project_id", "version", "app_name"}, // project_id, version, app_name sometimes not returned on import
 			},
 		},
 	})
@@ -62,6 +63,7 @@ func TestAccDatabaseResourceMySQL(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_database.test", "name", "test-mysql-db"),
 					resource.TestCheckResourceAttr("dokploy_database.test", "type", "mysql"),
 					resource.TestCheckResourceAttr("dokploy_database.test", "version", "8"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
 			},
 		},
@@ -87,6 +89,7 @@ func TestAccDatabaseResourceMongoDB(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_database.test", "name", "test-mongo-db"),
 					resource.TestCheckResourceAttr("dokploy_database.test", "type", "mongo"),
 					resource.TestCheckResourceAttr("dokploy_database.test", "version", "7"),
+					resource.TestCheckResourceAttrSet("dokploy_database.test", "app_name"),
 				),
 			},
 		},

@@ -35,6 +35,7 @@ type DatabaseResourceModel struct {
 	Version       types.String `tfsdk:"version"`
 	InternalPort  types.Int64  `tfsdk:"internal_port"`
 	ExternalPort  types.Int64  `tfsdk:"external_port"`
+	AppName       types.String `tfsdk:"app_name"`
 }
 
 func (r *DatabaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -90,6 +91,9 @@ func (r *DatabaseResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"external_port": schema.Int64Attribute{
 				Computed: true,
 			},
+			"app_name": schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -136,7 +140,7 @@ func (r *DatabaseResource) Create(ctx context.Context, req resource.CreateReques
 	plan.ID = types.StringValue(db.ID)
 	plan.InternalPort = types.Int64Value(db.InternalPort)
 	plan.ExternalPort = types.Int64Value(db.ExternalPort)
-
+	plan.AppName = types.StringValue(db.AppName)
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
