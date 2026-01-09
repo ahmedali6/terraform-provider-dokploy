@@ -125,6 +125,8 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewUsersDataSource,
 		NewAIsDataSource,
 		NewAIModelsDataSource,
+		NewApplicationDataSource,
+		NewApplicationsDataSource,
 	}
 }
 

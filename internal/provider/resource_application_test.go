@@ -337,3 +337,254 @@ resource "dokploy_application" "test" {
 }
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, description, replicas, memLimit, memReserve)
 }
+
+// TestAccApplicationResourceTraefikConfig tests the traefik_config attribute.
+func TestAccApplicationResourceTraefikConfig(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create with traefik_config
+			{
+				Config: testAccApplicationResourceTraefikConfig("test-traefik-project", "test-traefik-env", "test-traefik-app", "# Custom Traefik config\nhttp:\n  routers:\n    test:\n      rule: Host(`test.example.com`)"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-traefik-app"),
+					resource.TestCheckResourceAttrSet("dokploy_application.test", "traefik_config"),
+				),
+			},
+			// Update traefik_config
+			{
+				Config: testAccApplicationResourceTraefikConfig("test-traefik-project", "test-traefik-env", "test-traefik-app", "# Updated config\nhttp:\n  routers:\n    updated:\n      rule: Host(`updated.example.com`)"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet("dokploy_application.test", "traefik_config"),
+				),
+			},
+		},
+	})
+}
+
+func testAccApplicationResourceTraefikConfig(projectName, envName, appName, traefikConfig string) string {
+	return fmt.Sprintf(`
+provider "dokploy" {
+  host    = "%s"
+  api_key = "%s"
+}
+
+resource "dokploy_project" "test" {
+  name        = "%s"
+  description = "Test project for traefik config tests"
+}
+
+resource "dokploy_environment" "test" {
+  project_id = dokploy_project.test.id
+  name       = "%s"
+}
+
+resource "dokploy_application" "test" {
+  environment_id = dokploy_environment.test.id
+  name           = "%s"
+  source_type    = "docker"
+  docker_image   = "nginx:latest"
+  traefik_config = <<-EOT
+%s
+EOT
+}
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, traefikConfig)
+}
+
+// TestAccApplicationResourceMoveEnvironment tests moving an application between environments.
+func TestAccApplicationResourceMoveEnvironment(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create in first environment
+			{
+				Config: testAccApplicationResourceMoveEnvConfig("test-move-project", "env-1", "env-2", "test-move-app", "env-1"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-move-app"),
+					resource.TestCheckResourceAttrPair("dokploy_application.test", "environment_id", "dokploy_environment.env1", "id"),
+				),
+			},
+			// Move to second environment
+			{
+				Config: testAccApplicationResourceMoveEnvConfig("test-move-project", "env-1", "env-2", "test-move-app", "env-2"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-move-app"),
+					resource.TestCheckResourceAttrPair("dokploy_application.test", "environment_id", "dokploy_environment.env2", "id"),
+				),
+			},
+		},
+	})
+}
+
+func testAccApplicationResourceMoveEnvConfig(projectName, env1Name, env2Name, appName, targetEnv string) string {
+	envRef := "dokploy_environment.env1.id"
+	if targetEnv == "env-2" {
+		envRef = "dokploy_environment.env2.id"
+	}
+	return fmt.Sprintf(`
+provider "dokploy" {
+  host    = "%s"
+  api_key = "%s"
+}
+
+resource "dokploy_project" "test" {
+  name        = "%s"
+  description = "Test project for move environment tests"
+}
+
+resource "dokploy_environment" "env1" {
+  project_id = dokploy_project.test.id
+  name       = "%s"
+}
+
+resource "dokploy_environment" "env2" {
+  project_id = dokploy_project.test.id
+  name       = "%s"
+}
+
+resource "dokploy_application" "test" {
+  environment_id = %s
+  name           = "%s"
+  source_type    = "docker"
+  docker_image   = "nginx:latest"
+}
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, env1Name, env2Name, envRef, appName)
+}
+
+// TestAccApplicationDataSource tests the single application data source.
+func TestAccApplicationDataSource(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationDataSourceConfig("test-ds-app-project", "test-ds-app-env", "test-ds-app"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair("data.dokploy_application.test", "id", "dokploy_application.test", "id"),
+					resource.TestCheckResourceAttr("data.dokploy_application.test", "name", "test-ds-app"),
+					resource.TestCheckResourceAttr("data.dokploy_application.test", "source_type", "docker"),
+					resource.TestCheckResourceAttr("data.dokploy_application.test", "docker_image", "nginx:latest"),
+				),
+			},
+		},
+	})
+}
+
+func testAccApplicationDataSourceConfig(projectName, envName, appName string) string {
+	return fmt.Sprintf(`
+provider "dokploy" {
+  host    = "%s"
+  api_key = "%s"
+}
+
+resource "dokploy_project" "test" {
+  name        = "%s"
+  description = "Test project for application data source tests"
+}
+
+resource "dokploy_environment" "test" {
+  project_id = dokploy_project.test.id
+  name       = "%s"
+}
+
+resource "dokploy_application" "test" {
+  environment_id = dokploy_environment.test.id
+  name           = "%s"
+  source_type    = "docker"
+  docker_image   = "nginx:latest"
+}
+
+data "dokploy_application" "test" {
+  id = dokploy_application.test.id
+}
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName)
+}
+
+// TestAccApplicationsDataSource tests the applications list data source.
+func TestAccApplicationsDataSource(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccApplicationsDataSourceConfig("test-ds-apps-project", "test-ds-apps-env", "test-ds-app-1", "test-ds-app-2"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet("data.dokploy_applications.all", "applications.#"),
+					resource.TestCheckResourceAttrSet("data.dokploy_applications.by_env", "applications.#"),
+				),
+			},
+		},
+	})
+}
+
+func testAccApplicationsDataSourceConfig(projectName, envName, app1Name, app2Name string) string {
+	return fmt.Sprintf(`
+provider "dokploy" {
+  host    = "%s"
+  api_key = "%s"
+}
+
+resource "dokploy_project" "test" {
+  name        = "%s"
+  description = "Test project for applications data source tests"
+}
+
+resource "dokploy_environment" "test" {
+  project_id = dokploy_project.test.id
+  name       = "%s"
+}
+
+resource "dokploy_application" "test1" {
+  environment_id = dokploy_environment.test.id
+  name           = "%s"
+  source_type    = "docker"
+  docker_image   = "nginx:latest"
+}
+
+resource "dokploy_application" "test2" {
+  environment_id = dokploy_environment.test.id
+  name           = "%s"
+  source_type    = "docker"
+  docker_image   = "nginx:alpine"
+}
+
+data "dokploy_applications" "all" {
+  depends_on = [dokploy_application.test1, dokploy_application.test2]
+}
+
+data "dokploy_applications" "by_env" {
+  environment_id = dokploy_environment.test.id
+  depends_on     = [dokploy_application.test1, dokploy_application.test2]
+}
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, app1Name, app2Name)
+}

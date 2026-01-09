@@ -166,6 +166,9 @@ type ApplicationResourceModel struct {
 	NetworkSwarm         types.String `tfsdk:"network_swarm"`
 	StopGracePeriodSwarm types.Int64  `tfsdk:"stop_grace_period_swarm"`
 	EndpointSpecSwarm    types.String `tfsdk:"endpoint_spec_swarm"`
+
+	// Traefik configuration
+	TraefikConfig types.String `tfsdk:"traefik_config"`
 }
 
 func (r *ApplicationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -186,10 +189,7 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The environment ID this application belongs to.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Description: "The environment ID this application belongs to. Changing this will move the application to a different environment.",
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
@@ -678,6 +678,12 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "Endpoint specification for Docker Swarm mode (JSON format).",
 			},
+
+			// Traefik configuration
+			"traefik_config": schema.StringAttribute{
+				Optional:    true,
+				Description: "Custom Traefik configuration for the application. This allows you to define custom routing rules, middleware, and other Traefik-specific settings.",
+			},
 		},
 	}
 }
@@ -753,7 +759,15 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// 6. Read back the final state
+	// 6. Save Traefik config if provided
+	if !plan.TraefikConfig.IsNull() && !plan.TraefikConfig.IsUnknown() && plan.TraefikConfig.ValueString() != "" {
+		if err := r.client.UpdateTraefikConfig(createdApp.ID, plan.TraefikConfig.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Error saving Traefik config", err.Error())
+			return
+		}
+	}
+
+	// 7. Read back the final state
 	finalApp, err := r.client.GetApplication(createdApp.ID)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading application after create", err.Error())
@@ -763,7 +777,17 @@ func (r *ApplicationResource) Create(ctx context.Context, req resource.CreateReq
 	// Update plan with values from the API
 	updatePlanFromApplication(&plan, finalApp)
 
-	// 7. Deploy if requested
+	// Read traefik config if it was set
+	if !plan.TraefikConfig.IsNull() && !plan.TraefikConfig.IsUnknown() {
+		traefikConfig, err := r.client.ReadTraefikConfig(createdApp.ID)
+		if err != nil {
+			resp.Diagnostics.AddWarning("Error reading Traefik config", err.Error())
+		} else if traefikConfig != "" {
+			plan.TraefikConfig = types.StringValue(traefikConfig)
+		}
+	}
+
+	// 8. Deploy if requested
 	if !plan.DeployOnCreate.IsNull() && plan.DeployOnCreate.ValueBool() {
 		err := r.client.DeployApplication(createdApp.ID, plan.ServerID.ValueString())
 		if err != nil {
@@ -796,6 +820,17 @@ func (r *ApplicationResource) Read(ctx context.Context, req resource.ReadRequest
 	// Update state with values from API
 	readApplicationIntoState(&state, app)
 
+	// Read traefik config separately (not part of application response)
+	traefikConfig, err := r.client.ReadTraefikConfig(state.ID.ValueString())
+	if err != nil {
+		// Don't fail the read if traefik config can't be fetched
+		resp.Diagnostics.AddWarning("Error reading Traefik config", err.Error())
+	} else if traefikConfig != "" {
+		state.TraefikConfig = types.StringValue(traefikConfig)
+	} else {
+		state.TraefikConfig = types.StringNull()
+	}
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -813,6 +848,15 @@ func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateReq
 
 	appID := state.ID.ValueString()
 	plan.ID = state.ID
+
+	// 0. Check if environment_id changed - if so, move the application first
+	if plan.EnvironmentID.ValueString() != state.EnvironmentID.ValueString() {
+		_, err := r.client.MoveApplication(appID, plan.EnvironmentID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error moving application to new environment", err.Error())
+			return
+		}
+	}
 
 	// 1. Update general settings
 	if err := r.updateGeneralSettings(appID, &plan); err != nil {
@@ -841,7 +885,21 @@ func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	// 5. Read back the final state
+	// 5. Update Traefik config if provided
+	if !plan.TraefikConfig.IsNull() && !plan.TraefikConfig.IsUnknown() {
+		if err := r.client.UpdateTraefikConfig(appID, plan.TraefikConfig.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Error updating Traefik config", err.Error())
+			return
+		}
+	} else if !state.TraefikConfig.IsNull() && (plan.TraefikConfig.IsNull() || plan.TraefikConfig.ValueString() == "") {
+		// Clear traefik config if it was set before but is now empty/null
+		if err := r.client.UpdateTraefikConfig(appID, ""); err != nil {
+			resp.Diagnostics.AddError("Error clearing Traefik config", err.Error())
+			return
+		}
+	}
+
+	// 6. Read back the final state
 	finalApp, err := r.client.GetApplication(appID)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading application after update", err.Error())
@@ -850,6 +908,16 @@ func (r *ApplicationResource) Update(ctx context.Context, req resource.UpdateReq
 
 	// Update plan with values from the API
 	updatePlanFromApplication(&plan, finalApp)
+
+	// Read traefik config separately (not part of application response)
+	traefikConfig, err := r.client.ReadTraefikConfig(appID)
+	if err != nil {
+		resp.Diagnostics.AddWarning("Error reading Traefik config", err.Error())
+	} else if traefikConfig != "" {
+		plan.TraefikConfig = types.StringValue(traefikConfig)
+	} else {
+		plan.TraefikConfig = types.StringNull()
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

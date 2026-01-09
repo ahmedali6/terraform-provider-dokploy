@@ -928,6 +928,98 @@ func (c *DokployClient) StartApplication(id string) error {
 	return err
 }
 
+// ReadTraefikConfig retrieves the custom Traefik configuration for an application.
+func (c *DokployClient) ReadTraefikConfig(appID string) (string, error) {
+	endpoint := fmt.Sprintf("application.readTraefikConfig?applicationId=%s", url.QueryEscape(appID))
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+
+	// API returns a JSON string (quoted), so we need to unmarshal it
+	var config string
+	if err := json.Unmarshal(resp, &config); err != nil {
+		// If unmarshal fails, it might be null/empty
+		if string(resp) == "null" || string(resp) == "" {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to parse Traefik config response: %w", err)
+	}
+	return config, nil
+}
+
+// UpdateTraefikConfig updates the custom Traefik configuration for an application.
+func (c *DokployClient) UpdateTraefikConfig(appID, traefikConfig string) error {
+	payload := map[string]string{
+		"applicationId": appID,
+		"traefikConfig": traefikConfig,
+	}
+	_, err := c.doRequest("POST", "application.updateTraefikConfig", payload)
+	return err
+}
+
+// MoveApplication moves an application to a different environment.
+func (c *DokployClient) MoveApplication(appID, targetEnvironmentID string) (*Application, error) {
+	payload := map[string]string{
+		"applicationId":       appID,
+		"targetEnvironmentId": targetEnvironmentID,
+	}
+	resp, err := c.doRequest("POST", "application.move", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var app Application
+	if err := json.Unmarshal(resp, &app); err != nil {
+		return nil, fmt.Errorf("failed to parse application response: %w", err)
+	}
+	return &app, nil
+}
+
+// ListApplications retrieves all applications. Uses project.all and extracts applications from all environments.
+func (c *DokployClient) ListApplications() ([]Application, error) {
+	resp, err := c.doRequest("GET", "project.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var projects []struct {
+		Environments []struct {
+			Applications []Application `json:"applications"`
+		} `json:"environments"`
+	}
+	if err := json.Unmarshal(resp, &projects); err != nil {
+		return nil, fmt.Errorf("failed to parse projects response: %w", err)
+	}
+
+	var apps []Application
+	for _, proj := range projects {
+		for _, env := range proj.Environments {
+			apps = append(apps, env.Applications...)
+		}
+	}
+	return apps, nil
+}
+
+// ListApplicationsByEnvironment retrieves all applications in a specific environment.
+func (c *DokployClient) ListApplicationsByEnvironment(environmentID string) ([]Application, error) {
+	// First get the environment to find its project
+	endpoint := fmt.Sprintf("environment.one?environmentId=%s", url.QueryEscape(environmentID))
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var env struct {
+		Applications []Application `json:"applications"`
+	}
+	if err := json.Unmarshal(resp, &env); err != nil {
+		return nil, fmt.Errorf("failed to parse environment response: %w", err)
+	}
+
+	return env.Applications, nil
+}
+
 // SaveBuildType configures the build type settings for an application.
 // Corresponds to application.saveBuildType endpoint.
 func (c *DokployClient) SaveBuildType(appID string, buildType string, dockerfile string, dockerContextPath string, dockerBuildStage string, publishDirectory string) error {
