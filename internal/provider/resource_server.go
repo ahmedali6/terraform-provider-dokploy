@@ -126,6 +126,8 @@ func (r *ServerResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
+	// Create with only the fields supported by the create API.
+	// Note: command is NOT accepted by server.create, only by server.update.
 	server := client.Server{
 		Name:        plan.Name.ValueString(),
 		Description: plan.Description.ValueString(),
@@ -134,13 +136,34 @@ func (r *ServerResource) Create(ctx context.Context, req resource.CreateRequest,
 		Username:    plan.Username.ValueString(),
 		SSHKeyID:    plan.SSHKeyID.ValueString(),
 		ServerType:  plan.ServerType.ValueString(),
-		Command:     plan.Command.ValueString(),
 	}
 
 	createdServer, err := r.client.CreateServer(server)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating server", err.Error())
 		return
+	}
+
+	// Check if we need to update with command field (not supported by create API).
+	if !plan.Command.IsNull() && !plan.Command.IsUnknown() && plan.Command.ValueString() != "" {
+		updateServer := client.Server{
+			ID:          createdServer.ID,
+			Name:        createdServer.Name,
+			Description: createdServer.Description,
+			IPAddress:   createdServer.IPAddress,
+			Port:        createdServer.Port,
+			Username:    createdServer.Username,
+			SSHKeyID:    createdServer.SSHKeyID,
+			ServerType:  createdServer.ServerType,
+			Command:     plan.Command.ValueString(),
+		}
+
+		updatedServer, err := r.client.UpdateServer(updateServer)
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating server command after creation", err.Error())
+			return
+		}
+		createdServer = updatedServer
 	}
 
 	plan.ID = types.StringValue(createdServer.ID)
