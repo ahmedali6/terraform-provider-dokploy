@@ -103,7 +103,7 @@ resource "dokploy_redis" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, redisName, appNamePrefix, description)
 }
 
-// TestAccRedisResourceExtended tests Redis with extended settings that trigger the needsUpdate path
+// TestAccRedisResourceExtended tests Redis with extended settings that trigger the needsUpdate path.
 func TestAccRedisResourceExtended(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

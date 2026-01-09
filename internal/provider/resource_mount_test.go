@@ -161,7 +161,7 @@ resource "dokploy_mount" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, hostPath, mountPath)
 }
 
-// TestAccMountResourceFile tests file mount type
+// TestAccMountResourceFile tests file mount type.
 func TestAccMountResourceFile(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

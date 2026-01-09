@@ -78,7 +78,7 @@ resource "dokploy_environment" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName)
 }
 
-// TestAccEnvironmentResourceWithDescription tests environment with description field
+// TestAccEnvironmentResourceWithDescription tests environment with description field.
 func TestAccEnvironmentResourceWithDescription(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

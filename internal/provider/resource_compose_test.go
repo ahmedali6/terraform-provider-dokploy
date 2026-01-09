@@ -93,7 +93,7 @@ EOF
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, composeName, composeContent, deployOnCreate)
 }
 
-// TestAccComposeResourceInferRawType tests source type inference for raw compose
+// TestAccComposeResourceInferRawType tests source type inference for raw compose.
 func TestAccComposeResourceInferRawType(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
@@ -151,7 +151,7 @@ EOF
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, composeName, composeContent)
 }
 
-// TestAccComposeResourceInferGitType tests source type inference for git compose
+// TestAccComposeResourceInferGitType tests source type inference for git compose.
 func TestAccComposeResourceInferGitType(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
@@ -205,7 +205,7 @@ resource "dokploy_compose" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, composeName)
 }
 
-// TestAccComposeResourceExtended tests compose with extended settings
+// TestAccComposeResourceExtended tests compose with extended settings.
 func TestAccComposeResourceExtended(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

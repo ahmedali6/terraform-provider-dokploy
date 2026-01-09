@@ -183,7 +183,7 @@ resource "dokploy_domain" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, port, https)
 }
 
-// TestAccDomainResourceWithCompose tests domain resource attached to a compose service
+// TestAccDomainResourceWithCompose tests domain resource attached to a compose service.
 func TestAccDomainResourceWithCompose(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
@@ -278,7 +278,7 @@ resource "dokploy_domain" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, composeName, composeContent, host, port)
 }
 
-// TestAccDomainResourceWithComposeTraefikMe tests traefik.me domain for compose
+// TestAccDomainResourceWithComposeTraefikMe tests traefik.me domain for compose.
 func TestAccDomainResourceWithComposeTraefikMe(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

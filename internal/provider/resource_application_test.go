@@ -161,7 +161,7 @@ resource "dokploy_application" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, branch)
 }
 
-// TestAccApplicationResourceInferDockerType tests source type inference for docker
+// TestAccApplicationResourceInferDockerType tests source type inference for docker.
 func TestAccApplicationResourceInferDockerType(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
@@ -213,7 +213,7 @@ resource "dokploy_application" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName)
 }
 
-// TestAccApplicationResourceInferGitType tests source type inference for git
+// TestAccApplicationResourceInferGitType tests source type inference for git.
 func TestAccApplicationResourceInferGitType(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
@@ -267,7 +267,7 @@ resource "dokploy_application" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName)
 }
 
-// TestAccApplicationResourceExtendedSettings tests more optional fields
+// TestAccApplicationResourceExtendedSettings tests more optional fields.
 func TestAccApplicationResourceExtendedSettings(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")
