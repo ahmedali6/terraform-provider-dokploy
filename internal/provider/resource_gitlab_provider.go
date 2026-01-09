@@ -244,6 +244,7 @@ func (r *GitlabProviderResource) Update(ctx context.Context, req resource.Update
 		RefreshToken:  plan.RefreshToken.ValueString(),
 		GroupName:     plan.GroupName.ValueString(),
 		ExpiresAt:     plan.ExpiresAt.ValueInt64(),
+		AuthId:        plan.AuthId.ValueString(),
 	}
 
 	updated, err := r.client.UpdateGitlabProvider(provider)

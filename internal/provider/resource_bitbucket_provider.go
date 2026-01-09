@@ -214,6 +214,7 @@ func (r *BitbucketProviderResource) Update(ctx context.Context, req resource.Upd
 		AppPassword:            plan.AppPassword.ValueString(),
 		ApiToken:               plan.ApiToken.ValueString(),
 		BitbucketWorkspaceName: plan.BitbucketWorkspaceName.ValueString(),
+		AuthId:                 plan.AuthId.ValueString(),
 	}
 
 	updated, err := r.client.UpdateBitbucketProvider(provider)

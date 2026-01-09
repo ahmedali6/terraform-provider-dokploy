@@ -3033,6 +3033,9 @@ func (c *DokployClient) UpdateGitlabProvider(provider GitlabProvider) (*GitlabPr
 	if provider.GitProviderId != "" {
 		payload["gitProviderId"] = provider.GitProviderId
 	}
+	if provider.AuthId != "" {
+		payload["authId"] = provider.AuthId
+	}
 
 	resp, err := c.doRequest("POST", "gitlab.update", payload)
 	if err != nil {
@@ -3198,6 +3201,9 @@ func (c *DokployClient) UpdateBitbucketProvider(provider BitbucketProvider) (*Bi
 	}
 	if provider.BitbucketWorkspaceName != "" {
 		payload["bitbucketWorkspaceName"] = provider.BitbucketWorkspaceName
+	}
+	if provider.AuthId != "" {
+		payload["authId"] = provider.AuthId
 	}
 
 	resp, err := c.doRequest("POST", "bitbucket.update", payload)
