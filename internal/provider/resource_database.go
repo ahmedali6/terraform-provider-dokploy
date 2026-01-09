@@ -35,7 +35,7 @@ type DatabaseResourceModel struct {
 	Version         types.String `tfsdk:"version"`
 	InternalPort    types.Int64  `tfsdk:"internal_port"`
 	ExternalPort    types.Int64  `tfsdk:"external_port"`
-	ApplicationName types.String `tfsdk:"app_name"`
+	AppName types.String `tfsdk:"app_name"`
 }
 
 func (r *DatabaseResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
