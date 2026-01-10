@@ -467,6 +467,105 @@ func (c *DokployClient) GetAIModels(apiURL, apiKey string) ([]AIModel, error) {
 	return models, nil
 }
 
+// --- Certificate ---
+
+// Certificate represents a TLS certificate in Dokploy.
+type Certificate struct {
+	ID              string  `json:"certificateId"`
+	Name            string  `json:"name"`
+	CertificateData string  `json:"certificateData"`
+	PrivateKey      string  `json:"privateKey"`
+	CertificatePath string  `json:"certificatePath"`
+	AutoRenew       *bool   `json:"autoRenew"`
+	OrganizationID  string  `json:"organizationId"`
+	ServerID        *string `json:"serverId"`
+}
+
+// CreateCertificate creates a new TLS certificate.
+func (c *DokployClient) CreateCertificate(cert Certificate) (*Certificate, error) {
+	payload := map[string]interface{}{
+		"name":            cert.Name,
+		"certificateData": cert.CertificateData,
+		"privateKey":      cert.PrivateKey,
+		"organizationId":  cert.OrganizationID,
+	}
+
+	if cert.CertificatePath != "" {
+		payload["certificatePath"] = cert.CertificatePath
+	}
+	if cert.AutoRenew != nil {
+		payload["autoRenew"] = *cert.AutoRenew
+	}
+	if cert.ServerID != nil && *cert.ServerID != "" {
+		payload["serverId"] = *cert.ServerID
+	}
+
+	resp, err := c.doRequest("POST", "certificates.create", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Certificate
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse certificate response: %w", err)
+	}
+	return &result, nil
+}
+
+// GetCertificate retrieves a certificate by ID.
+func (c *DokployClient) GetCertificate(id string) (*Certificate, error) {
+	endpoint := fmt.Sprintf("certificates.one?certificateId=%s", url.QueryEscape(id))
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Certificate
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse certificate response: %w", err)
+	}
+	return &result, nil
+}
+
+// ListCertificates returns all certificates.
+func (c *DokployClient) ListCertificates() ([]Certificate, error) {
+	resp, err := c.doRequest("GET", "certificates.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var certs []Certificate
+	if err := json.Unmarshal(resp, &certs); err != nil {
+		return nil, fmt.Errorf("failed to parse certificates response: %w", err)
+	}
+	return certs, nil
+}
+
+// DeleteCertificate deletes a certificate by ID.
+func (c *DokployClient) DeleteCertificate(id string) error {
+	payload := map[string]string{
+		"certificateId": id,
+	}
+	_, err := c.doRequest("POST", "certificates.remove", payload)
+	return err
+}
+
+// GetCurrentOrganizationID retrieves the organization ID for the current user.
+func (c *DokployClient) GetCurrentOrganizationID() (string, error) {
+	resp, err := c.doRequest("GET", "user.get", nil)
+	if err != nil {
+		return "", err
+	}
+
+	var result struct {
+		OrganizationID string `json:"organizationId"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return "", fmt.Errorf("failed to parse user response: %w", err)
+	}
+	return result.OrganizationID, nil
+}
+
 // --- Project ---
 
 type Project struct {
