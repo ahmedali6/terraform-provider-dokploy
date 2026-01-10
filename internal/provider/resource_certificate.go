@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -86,7 +87,7 @@ func (r *CertificateResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Description: "Whether the certificate should be auto-renewed.",
 				PlanModifiers: []planmodifier.Bool{
-					boolRequiresReplace{},
+					boolplanmodifier.RequiresReplace(),
 				},
 			},
 			"server_id": schema.StringAttribute{
@@ -231,28 +232,4 @@ func (r *CertificateResource) ImportState(ctx context.Context, req resource.Impo
 		"After importing, you must set the 'certificate_data' and 'private_key' attributes in your configuration. "+
 			"These values cannot be securely retrieved from the server.",
 	)
-}
-
-// boolRequiresReplace is a plan modifier that requires replacement when a bool value changes.
-type boolRequiresReplace struct{}
-
-func (m boolRequiresReplace) Description(_ context.Context) string {
-	return "Requires replacement when value changes."
-}
-
-func (m boolRequiresReplace) MarkdownDescription(_ context.Context) string {
-	return "Requires replacement when value changes."
-}
-
-func (m boolRequiresReplace) PlanModifyBool(ctx context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
-	if req.StateValue.IsNull() {
-		return
-	}
-	if req.PlanValue.IsUnknown() {
-		return
-	}
-	if req.StateValue.Equal(req.PlanValue) {
-		return
-	}
-	resp.RequiresReplace = true
 }
