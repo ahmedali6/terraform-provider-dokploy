@@ -108,6 +108,7 @@ func (p *DokployProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewApiKeyResource,
 		NewUserPermissionsResource,
 		NewAIResource,
+		NewCertificateResource,
 	}
 }
 
@@ -127,6 +128,8 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewAIModelsDataSource,
 		NewApplicationDataSource,
 		NewApplicationsDataSource,
+		NewCertificateDataSource,
+		NewCertificatesDataSource,
 	}
 }
 
