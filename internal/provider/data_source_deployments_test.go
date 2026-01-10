@@ -9,6 +9,13 @@ import (
 )
 
 func TestAccDeploymentsDataSource_Application(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -24,6 +31,13 @@ func TestAccDeploymentsDataSource_Application(t *testing.T) {
 }
 
 func TestAccDeploymentsDataSource_Compose(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
