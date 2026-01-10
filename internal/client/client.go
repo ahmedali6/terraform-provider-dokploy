@@ -2011,7 +2011,7 @@ type Deployment struct {
 }
 
 // ListDeployments retrieves deployments using the deployment.allByType API.
-// The deploymentType can be: application, compose, server, schedule, previewDeployment, backup, volumeBackup
+// The deploymentType can be: application, compose, server, schedule, previewDeployment, backup, volumeBackup.
 func (c *DokployClient) ListDeployments(id string, deploymentType string) ([]Deployment, error) {
 	endpoint := fmt.Sprintf("deployment.allByType?id=%s&type=%s", id, deploymentType)
 	resp, err := c.doRequest("GET", endpoint, nil)
