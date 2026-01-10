@@ -452,7 +452,7 @@ resource "dokploy_application" "drop_app" {
 
 ### Required
 
-- `environment_id` (String) The environment ID this application belongs to.
+- `environment_id` (String) The environment ID this application belongs to. Changing this will move the application to a different environment.
 - `name` (String) The display name of the application.
 
 ### Optional
@@ -549,6 +549,7 @@ resource "dokploy_application" "drop_app" {
 - `stop_grace_period_swarm` (Number) Stop grace period in nanoseconds for Docker Swarm mode.
 - `subtitle` (String) Display subtitle for the application in the UI.
 - `title` (String) Display title for the application in the UI.
+- `traefik_config` (String) Custom Traefik configuration for the application. This allows you to define custom routing rules, middleware, and other Traefik-specific settings.
 - `trigger_type` (String) Trigger type for deployments: 'push' (default) or 'tag'.
 - `update_config_swarm` (String) Update configuration for Docker Swarm mode (JSON format).
 - `username` (String) Username for Docker registry authentication.
