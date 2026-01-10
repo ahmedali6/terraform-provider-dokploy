@@ -1462,17 +1462,18 @@ type Compose struct {
 	// Compose file content (for raw source type)
 	ComposeFile string `json:"composeFile"`
 	ComposePath string `json:"composePath"`
+	ComposeType string `json:"composeType"` // docker-compose or stack
 
 	// Source configuration
 	SourceType string `json:"sourceType"` // github, gitlab, bitbucket, git, raw
 
 	// Custom Git provider settings
-	CustomGitUrl       string `json:"customGitUrl"`
-	CustomGitBranch    string `json:"customGitBranch"`
-	CustomGitSSHKeyId  string `json:"customGitSSHKeyId"`
-	CustomGitBuildPath string `json:"customGitBuildPath"`
-	EnableSubmodules   bool   `json:"enableSubmodules"`
-	WatchPaths         string `json:"watchPaths"`
+	CustomGitUrl       string   `json:"customGitUrl"`
+	CustomGitBranch    string   `json:"customGitBranch"`
+	CustomGitSSHKeyId  string   `json:"customGitSSHKeyId"`
+	CustomGitBuildPath string   `json:"customGitBuildPath"`
+	EnableSubmodules   bool     `json:"enableSubmodules"`
+	WatchPaths         []string `json:"watchPaths"`
 
 	// GitHub provider settings
 	Repository  string `json:"repository"`
@@ -1508,11 +1509,21 @@ type Compose struct {
 	AutoDeploy bool `json:"autoDeploy"`
 	Replicas   int  `json:"replicas"`
 
+	// Advanced configuration
+	Command                   string `json:"command"`
+	Suffix                    string `json:"suffix"`
+	Randomize                 bool   `json:"randomize"`
+	IsolatedDeployment        bool   `json:"isolatedDeployment"`
+	IsolatedDeploymentsVolume bool   `json:"isolatedDeploymentsVolume"`
+
 	// Environment
 	Env string `json:"env"`
 
 	// Status
 	ComposeStatus string `json:"composeStatus"`
+
+	// Webhook token
+	RefreshToken string `json:"refreshToken"`
 
 	// Domains
 	Domains []Domain `json:"domains"`
@@ -1523,10 +1534,15 @@ type Compose struct {
 
 func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 	// 1. Create compose with serverId
+	composeType := comp.ComposeType
+	if composeType == "" {
+		composeType = "docker-compose"
+	}
+
 	payload := map[string]interface{}{
 		"environmentId": comp.EnvironmentID,
 		"name":          comp.Name,
-		"composeType":   "docker-compose",
+		"composeType":   composeType,
 		"appName":       comp.Name,
 	}
 
@@ -1681,6 +1697,22 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 	// Environment variables.
 	if comp.Env != "" {
 		updatePayload["env"] = comp.Env
+	}
+
+	// Advanced configuration
+	if comp.Command != "" {
+		updatePayload["command"] = comp.Command
+	}
+	if comp.Suffix != "" {
+		updatePayload["suffix"] = comp.Suffix
+	}
+	// Always send boolean fields to ensure false values are communicated
+	updatePayload["randomize"] = comp.Randomize
+	updatePayload["isolatedDeployment"] = comp.IsolatedDeployment
+	updatePayload["isolatedDeploymentsVolume"] = comp.IsolatedDeploymentsVolume
+	// Send watchPaths if not nil (allows clearing by sending empty array)
+	if comp.WatchPaths != nil {
+		updatePayload["watchPaths"] = comp.WatchPaths
 	}
 
 	if comp.SourceType == "" {
@@ -1855,6 +1887,22 @@ func (c *DokployClient) UpdateCompose(comp Compose) (*Compose, error) {
 		payload["env"] = comp.Env
 	}
 
+	// Advanced configuration
+	if comp.Command != "" {
+		payload["command"] = comp.Command
+	}
+	if comp.Suffix != "" {
+		payload["suffix"] = comp.Suffix
+	}
+	// These boolean fields should always be sent if set
+	payload["randomize"] = comp.Randomize
+	payload["isolatedDeployment"] = comp.IsolatedDeployment
+	payload["isolatedDeploymentsVolume"] = comp.IsolatedDeploymentsVolume
+	// Send watchPaths if not nil (allows clearing by sending empty array)
+	if comp.WatchPaths != nil {
+		payload["watchPaths"] = comp.WatchPaths
+	}
+
 	if comp.EnvironmentID != "" {
 		payload["environmentId"] = comp.EnvironmentID
 	}
@@ -1888,6 +1936,53 @@ func (c *DokployClient) DeployCompose(id string, serverId string) error {
 	}
 	_, err := c.doRequest("POST", "compose.deploy", payload)
 	return err
+}
+
+// MoveCompose moves a compose to a different environment.
+func (c *DokployClient) MoveCompose(composeID, targetEnvironmentID string) (*Compose, error) {
+	payload := map[string]string{
+		"composeId":           composeID,
+		"targetEnvironmentId": targetEnvironmentID,
+	}
+	resp, err := c.doRequest("POST", "compose.move", payload)
+	if err != nil {
+		return nil, err
+	}
+	var result Compose
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListComposes retrieves all composes, optionally filtered by environment ID.
+func (c *DokployClient) ListComposes(environmentID string) ([]Compose, error) {
+	// Composes are retrieved via project.all API
+	resp, err := c.doRequest("GET", "project.all", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var projects []struct {
+		Environments []struct {
+			EnvironmentID string    `json:"environmentId"`
+			Compose       []Compose `json:"compose"`
+		} `json:"environments"`
+	}
+	if err := json.Unmarshal(resp, &projects); err != nil {
+		return nil, err
+	}
+
+	var composes []Compose
+	for _, proj := range projects {
+		for _, env := range proj.Environments {
+			if environmentID != "" && env.EnvironmentID != environmentID {
+				continue
+			}
+			composes = append(composes, env.Compose...)
+		}
+	}
+	return composes, nil
 }
 
 // --- Database ---

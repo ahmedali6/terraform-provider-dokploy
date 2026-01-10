@@ -236,7 +236,7 @@ resource "dokploy_compose" "server_specific" {
 
 ### Required
 
-- `environment_id` (String) The environment ID this compose stack belongs to.
+- `environment_id` (String) The environment ID this compose stack belongs to. Can be changed to move the compose to a different environment.
 - `name` (String) The display name of the compose stack.
 
 ### Optional
@@ -249,8 +249,10 @@ resource "dokploy_compose" "server_specific" {
 - `bitbucket_owner` (String) Bitbucket repository owner/workspace.
 - `bitbucket_repository` (String) Bitbucket repository name.
 - `branch` (String) Branch to deploy from (GitHub/GitLab/Bitbucket/Gitea).
+- `command` (String) Custom command to run for deployment.
 - `compose_file_content` (String) Raw docker-compose.yml content (for source_type 'raw').
 - `compose_path` (String) Path to the docker-compose.yml file in the repository.
+- `compose_type` (String) The compose type: 'docker-compose' (default) or 'stack' for Docker Swarm.
 - `custom_git_branch` (String) Branch to use for custom Git repository.
 - `custom_git_build_path` (String) Build path within the custom Git repository.
 - `custom_git_ssh_key_id` (String) SSH key ID for accessing the custom Git repository.
@@ -272,15 +274,23 @@ resource "dokploy_compose" "server_specific" {
 - `gitlab_path_namespace` (String) GitLab path namespace (for nested groups).
 - `gitlab_project_id` (Number) GitLab project ID.
 - `gitlab_repository` (String) GitLab repository name.
+- `isolated_deployment` (Boolean) Enable isolated deployments.
+- `isolated_deployments_volume` (Boolean) Enable isolated deployment volumes.
 - `owner` (String) Repository owner/organization for GitHub source.
+- `randomize` (Boolean) Randomize service names.
 - `repository` (String) Repository name for GitHub source (e.g., 'my-repo').
 - `server_id` (String) Server ID to deploy the compose stack to. If not specified, deploys to the default server.
 - `source_type` (String) The source type for the compose stack: github, gitlab, bitbucket, gitea, git, or raw.
+- `suffix` (String) Suffix to add to service names.
 - `trigger_type` (String) Trigger type for deployments: 'push' (default) or 'tag'.
+- `watch_paths` (List of String) Paths to watch for changes to trigger deployments.
 
 ### Read-Only
 
+- `compose_status` (String) Current status of the compose stack: idle, running, done, or error.
+- `created_at` (String) Timestamp when the compose stack was created.
 - `id` (String) The unique identifier of the compose stack.
+- `refresh_token` (String, Sensitive) Webhook refresh token for triggering deployments.
 
 ## Import
 

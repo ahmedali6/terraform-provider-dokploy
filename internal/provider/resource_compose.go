@@ -7,6 +7,7 @@ import (
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -40,6 +41,7 @@ type ComposeResourceModel struct {
 	// Compose file
 	ComposeFileContent types.String `tfsdk:"compose_file_content"`
 	ComposePath        types.String `tfsdk:"compose_path"`
+	ComposeType        types.String `tfsdk:"compose_type"`
 
 	// Source configuration
 	SourceType types.String `tfsdk:"source_type"`
@@ -87,6 +89,19 @@ type ComposeResourceModel struct {
 	// Runtime configuration
 	AutoDeploy types.Bool `tfsdk:"auto_deploy"`
 
+	// Advanced configuration
+	Command                   types.String `tfsdk:"command"`
+	Suffix                    types.String `tfsdk:"suffix"`
+	Randomize                 types.Bool   `tfsdk:"randomize"`
+	IsolatedDeployment        types.Bool   `tfsdk:"isolated_deployment"`
+	IsolatedDeploymentsVolume types.Bool   `tfsdk:"isolated_deployments_volume"`
+	WatchPaths                types.List   `tfsdk:"watch_paths"`
+
+	// Computed status
+	ComposeStatus types.String `tfsdk:"compose_status"`
+	RefreshToken  types.String `tfsdk:"refresh_token"`
+	CreatedAt     types.String `tfsdk:"created_at"`
+
 	// Deployment options
 	DeployOnCreate types.Bool `tfsdk:"deploy_on_create"`
 }
@@ -109,10 +124,7 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The environment ID this compose stack belongs to.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+				Description: "The environment ID this compose stack belongs to. Can be changed to move the compose to a different environment.",
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
@@ -153,6 +165,15 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:    true,
 				Description: "Path to the docker-compose.yml file in the repository.",
 				Default:     stringdefault.StaticString("./docker-compose.yml"),
+			},
+			"compose_type": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "The compose type: 'docker-compose' (default) or 'stack' for Docker Swarm.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("docker-compose", "stack"),
+				},
+				Default: stringdefault.StaticString("docker-compose"),
 			},
 
 			// Source type
@@ -320,6 +341,63 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Enable automatic deployment on Git push. Defaults to API default (typically true).",
 			},
 
+			// Advanced configuration
+			"command": schema.StringAttribute{
+				Optional:    true,
+				Description: "Custom command to run for deployment.",
+			},
+			"suffix": schema.StringAttribute{
+				Optional:    true,
+				Description: "Suffix to add to service names.",
+			},
+			"randomize": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Randomize service names.",
+				Default:     booldefault.StaticBool(false),
+			},
+			"isolated_deployment": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Enable isolated deployments.",
+				Default:     booldefault.StaticBool(false),
+			},
+			"isolated_deployments_volume": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Enable isolated deployment volumes.",
+				Default:     booldefault.StaticBool(false),
+			},
+			"watch_paths": schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Paths to watch for changes to trigger deployments.",
+			},
+
+			// Computed status fields
+			"compose_status": schema.StringAttribute{
+				Computed:    true,
+				Description: "Current status of the compose stack: idle, running, done, or error.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"refresh_token": schema.StringAttribute{
+				Computed:    true,
+				Sensitive:   true,
+				Description: "Webhook refresh token for triggering deployments.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "Timestamp when the compose stack was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+
 			// Deployment options
 			"deploy_on_create": schema.BoolAttribute{
 				Optional:    true,
@@ -354,6 +432,16 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 		plan.SourceType = inferComposeSourceType(&plan)
 	}
 
+	// Convert WatchPaths from types.List to []string
+	var watchPaths []string
+	if !plan.WatchPaths.IsNull() && !plan.WatchPaths.IsUnknown() {
+		diags = plan.WatchPaths.ElementsAs(ctx, &watchPaths, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	comp := client.Compose{
 		Name:              plan.Name.ValueString(),
 		EnvironmentID:     plan.EnvironmentID.ValueString(),
@@ -365,6 +453,14 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 		ComposePath:       plan.ComposePath.ValueString(),
 		AutoDeploy:        plan.AutoDeploy.ValueBool(),
 		ServerID:          plan.ServerID.ValueString(),
+		// Advanced configuration
+		ComposeType:               plan.ComposeType.ValueString(),
+		Command:                   plan.Command.ValueString(),
+		Suffix:                    plan.Suffix.ValueString(),
+		Randomize:                 plan.Randomize.ValueBool(),
+		IsolatedDeployment:        plan.IsolatedDeployment.ValueBool(),
+		IsolatedDeploymentsVolume: plan.IsolatedDeploymentsVolume.ValueBool(),
+		WatchPaths:                watchPaths,
 	}
 
 	// GitHub fields
@@ -446,7 +542,7 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Update plan from created compose
 	plan.ID = types.StringValue(createdComp.ID)
-	readComposeIntoState(&plan, createdComp)
+	readComposeIntoState(ctx, &plan, createdComp, &resp.Diagnostics)
 
 	if !plan.DeployOnCreate.IsNull() && plan.DeployOnCreate.ValueBool() {
 		err := r.client.DeployCompose(createdComp.ID, plan.ServerID.ValueString())
@@ -477,7 +573,7 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	readComposeIntoState(&state, comp)
+	readComposeIntoState(ctx, &state, comp, &resp.Diagnostics)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -491,6 +587,59 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	var state ComposeResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	environmentChanged := !plan.EnvironmentID.Equal(state.EnvironmentID)
+
+	// Check if environment_id changed - use compose.move API
+	if environmentChanged {
+		movedComp, err := r.client.MoveCompose(plan.ID.ValueString(), plan.EnvironmentID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error moving compose to new environment", err.Error())
+			return
+		}
+
+		// Check if only environment_id changed - if so, skip the update call
+		onlyEnvironmentChanged := plan.Name.Equal(state.Name) &&
+			plan.ComposeFileContent.Equal(state.ComposeFileContent) &&
+			plan.SourceType.Equal(state.SourceType) &&
+			plan.CustomGitUrl.Equal(state.CustomGitUrl) &&
+			plan.CustomGitBranch.Equal(state.CustomGitBranch) &&
+			plan.CustomGitSSHKeyID.Equal(state.CustomGitSSHKeyID) &&
+			plan.ComposePath.Equal(state.ComposePath) &&
+			plan.AutoDeploy.Equal(state.AutoDeploy) &&
+			plan.ComposeType.Equal(state.ComposeType) &&
+			plan.Command.Equal(state.Command) &&
+			plan.Suffix.Equal(state.Suffix) &&
+			plan.Randomize.Equal(state.Randomize) &&
+			plan.IsolatedDeployment.Equal(state.IsolatedDeployment) &&
+			plan.IsolatedDeploymentsVolume.Equal(state.IsolatedDeploymentsVolume) &&
+			plan.WatchPaths.Equal(state.WatchPaths)
+
+		if onlyEnvironmentChanged {
+			// MoveCompose is sufficient; use returned data to update state
+			readComposeIntoState(ctx, &plan, movedComp, &resp.Diagnostics)
+			diags = resp.State.Set(ctx, plan)
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+	}
+
+	// Convert WatchPaths from types.List to []string
+	var watchPaths []string
+	if !plan.WatchPaths.IsNull() && !plan.WatchPaths.IsUnknown() {
+		diags = plan.WatchPaths.ElementsAs(ctx, &watchPaths, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	comp := client.Compose{
 		ID:                plan.ID.ValueString(),
 		Name:              plan.Name.ValueString(),
@@ -502,6 +651,14 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		CustomGitSSHKeyId: plan.CustomGitSSHKeyID.ValueString(),
 		ComposePath:       plan.ComposePath.ValueString(),
 		AutoDeploy:        plan.AutoDeploy.ValueBool(),
+		// Advanced configuration
+		ComposeType:               plan.ComposeType.ValueString(),
+		Command:                   plan.Command.ValueString(),
+		Suffix:                    plan.Suffix.ValueString(),
+		Randomize:                 plan.Randomize.ValueBool(),
+		IsolatedDeployment:        plan.IsolatedDeployment.ValueBool(),
+		IsolatedDeploymentsVolume: plan.IsolatedDeploymentsVolume.ValueBool(),
+		WatchPaths:                watchPaths,
 	}
 
 	// GitHub fields
@@ -572,7 +729,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	readComposeIntoState(&plan, updatedComp)
+	readComposeIntoState(ctx, &plan, updatedComp, &resp.Diagnostics)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -623,7 +780,7 @@ func inferComposeSourceType(plan *ComposeResourceModel) types.String {
 	return types.StringValue("github")
 }
 
-func readComposeIntoState(state *ComposeResourceModel, comp *client.Compose) {
+func readComposeIntoState(ctx context.Context, state *ComposeResourceModel, comp *client.Compose, diags *diag.Diagnostics) {
 	state.Name = types.StringValue(comp.Name)
 
 	if comp.EnvironmentID != "" {
@@ -649,6 +806,9 @@ func readComposeIntoState(state *ComposeResourceModel, comp *client.Compose) {
 	}
 	if comp.ComposePath != "" {
 		state.ComposePath = types.StringValue(comp.ComposePath)
+	}
+	if comp.ComposeType != "" {
+		state.ComposeType = types.StringValue(comp.ComposeType)
 	}
 
 	// Source type
@@ -758,4 +918,42 @@ func readComposeIntoState(state *ComposeResourceModel, comp *client.Compose) {
 
 	// Runtime
 	state.AutoDeploy = types.BoolValue(comp.AutoDeploy)
+
+	// Advanced configuration
+	if comp.Command != "" {
+		state.Command = types.StringValue(comp.Command)
+	}
+	if comp.Suffix != "" {
+		state.Suffix = types.StringValue(comp.Suffix)
+	}
+	state.Randomize = types.BoolValue(comp.Randomize)
+	state.IsolatedDeployment = types.BoolValue(comp.IsolatedDeployment)
+	state.IsolatedDeploymentsVolume = types.BoolValue(comp.IsolatedDeploymentsVolume)
+
+	// WatchPaths - convert []string to types.List
+	if len(comp.WatchPaths) > 0 {
+		watchPathsList, d := types.ListValueFrom(ctx, types.StringType, comp.WatchPaths)
+		diags.Append(d...)
+		state.WatchPaths = watchPathsList
+	} else {
+		// Set to null when API returns empty array to handle drift properly
+		state.WatchPaths = types.ListNull(types.StringType)
+	}
+
+	// Computed status fields
+	if comp.ComposeStatus != "" {
+		state.ComposeStatus = types.StringValue(comp.ComposeStatus)
+	} else if state.ComposeStatus.IsUnknown() {
+		state.ComposeStatus = types.StringNull()
+	}
+	if comp.RefreshToken != "" {
+		state.RefreshToken = types.StringValue(comp.RefreshToken)
+	} else if state.RefreshToken.IsUnknown() {
+		state.RefreshToken = types.StringNull()
+	}
+	if comp.CreatedAt != "" {
+		state.CreatedAt = types.StringValue(comp.CreatedAt)
+	} else if state.CreatedAt.IsUnknown() {
+		state.CreatedAt = types.StringNull()
+	}
 }
