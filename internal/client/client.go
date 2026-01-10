@@ -1985,6 +1985,92 @@ func (c *DokployClient) ListComposes(environmentID string) ([]Compose, error) {
 	return composes, nil
 }
 
+// --- Deployment ---
+
+type Deployment struct {
+	ID                  string  `json:"deploymentId"`
+	Title               string  `json:"title"`
+	Description         string  `json:"description"`
+	Status              string  `json:"status"`
+	LogPath             string  `json:"logPath"`
+	PID                 *int    `json:"pid"`
+	ApplicationID       *string `json:"applicationId"`
+	ComposeID           *string `json:"composeId"`
+	ServerID            *string `json:"serverId"`
+	IsPreviewDeployment bool    `json:"isPreviewDeployment"`
+	PreviewDeploymentID *string `json:"previewDeploymentId"`
+	CreatedAt           string  `json:"createdAt"`
+	StartedAt           string  `json:"startedAt"`
+	FinishedAt          *string `json:"finishedAt"`
+	ErrorMessage        *string `json:"errorMessage"`
+	ScheduleID          *string `json:"scheduleId"`
+	BackupID            *string `json:"backupId"`
+	RollbackID          *string `json:"rollbackId"`
+	VolumeBackupID      *string `json:"volumeBackupId"`
+	BuildServerID       *string `json:"buildServerId"`
+}
+
+// ListDeployments retrieves deployments using the deployment.allByType API.
+// The deploymentType can be: application, compose, server, schedule, previewDeployment, backup, volumeBackup
+func (c *DokployClient) ListDeployments(id string, deploymentType string) ([]Deployment, error) {
+	endpoint := fmt.Sprintf("deployment.allByType?id=%s&type=%s", id, deploymentType)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var deployments []Deployment
+	if err := json.Unmarshal(resp, &deployments); err != nil {
+		return nil, err
+	}
+	return deployments, nil
+}
+
+// ListApplicationDeployments retrieves deployments for a specific application.
+func (c *DokployClient) ListApplicationDeployments(applicationID string) ([]Deployment, error) {
+	endpoint := fmt.Sprintf("deployment.all?applicationId=%s", applicationID)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var deployments []Deployment
+	if err := json.Unmarshal(resp, &deployments); err != nil {
+		return nil, err
+	}
+	return deployments, nil
+}
+
+// ListComposeDeployments retrieves deployments for a specific compose.
+func (c *DokployClient) ListComposeDeployments(composeID string) ([]Deployment, error) {
+	endpoint := fmt.Sprintf("deployment.allByCompose?composeId=%s", composeID)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var deployments []Deployment
+	if err := json.Unmarshal(resp, &deployments); err != nil {
+		return nil, err
+	}
+	return deployments, nil
+}
+
+// ListServerDeployments retrieves deployments for a specific server.
+func (c *DokployClient) ListServerDeployments(serverID string) ([]Deployment, error) {
+	endpoint := fmt.Sprintf("deployment.allByServer?serverId=%s", serverID)
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var deployments []Deployment
+	if err := json.Unmarshal(resp, &deployments); err != nil {
+		return nil, err
+	}
+	return deployments, nil
+}
+
 // --- Database ---
 
 type Database struct {

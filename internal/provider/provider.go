@@ -132,6 +132,7 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewCertificatesDataSource,
 		NewComposeDataSource,
 		NewComposesDataSource,
+		NewDeploymentsDataSource,
 	}
 }
 
