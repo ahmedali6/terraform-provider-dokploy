@@ -226,39 +226,61 @@ func (d *DeploymentsDataSource) Read(ctx context.Context, req datasource.ReadReq
 			StartedAt:           types.StringValue(dep.StartedAt),
 		}
 
-		// Handle nullable pointer fields
+		// Handle nullable pointer fields - explicitly set null when nil
 		if dep.ApplicationID != nil {
 			data.Deployments[i].ApplicationID = types.StringValue(*dep.ApplicationID)
+		} else {
+			data.Deployments[i].ApplicationID = types.StringNull()
 		}
 		if dep.ComposeID != nil {
 			data.Deployments[i].ComposeID = types.StringValue(*dep.ComposeID)
+		} else {
+			data.Deployments[i].ComposeID = types.StringNull()
 		}
 		if dep.ServerID != nil {
 			data.Deployments[i].ServerID = types.StringValue(*dep.ServerID)
+		} else {
+			data.Deployments[i].ServerID = types.StringNull()
 		}
 		if dep.PreviewDeploymentID != nil {
 			data.Deployments[i].PreviewDeploymentID = types.StringValue(*dep.PreviewDeploymentID)
+		} else {
+			data.Deployments[i].PreviewDeploymentID = types.StringNull()
 		}
 		if dep.FinishedAt != nil {
 			data.Deployments[i].FinishedAt = types.StringValue(*dep.FinishedAt)
+		} else {
+			data.Deployments[i].FinishedAt = types.StringNull()
 		}
 		if dep.ErrorMessage != nil {
 			data.Deployments[i].ErrorMessage = types.StringValue(*dep.ErrorMessage)
+		} else {
+			data.Deployments[i].ErrorMessage = types.StringNull()
 		}
 		if dep.ScheduleID != nil {
 			data.Deployments[i].ScheduleID = types.StringValue(*dep.ScheduleID)
+		} else {
+			data.Deployments[i].ScheduleID = types.StringNull()
 		}
 		if dep.BackupID != nil {
 			data.Deployments[i].BackupID = types.StringValue(*dep.BackupID)
+		} else {
+			data.Deployments[i].BackupID = types.StringNull()
 		}
 		if dep.RollbackID != nil {
 			data.Deployments[i].RollbackID = types.StringValue(*dep.RollbackID)
+		} else {
+			data.Deployments[i].RollbackID = types.StringNull()
 		}
 		if dep.VolumeBackupID != nil {
 			data.Deployments[i].VolumeBackupID = types.StringValue(*dep.VolumeBackupID)
+		} else {
+			data.Deployments[i].VolumeBackupID = types.StringNull()
 		}
 		if dep.BuildServerID != nil {
 			data.Deployments[i].BuildServerID = types.StringValue(*dep.BuildServerID)
+		} else {
+			data.Deployments[i].BuildServerID = types.StringNull()
 		}
 	}
 
