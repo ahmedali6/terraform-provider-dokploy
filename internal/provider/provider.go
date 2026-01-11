@@ -133,6 +133,10 @@ func (p *DokployProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewComposeDataSource,
 		NewComposesDataSource,
 		NewDeploymentsDataSource,
+		NewDestinationDataSource,
+		NewDestinationsDataSource,
+		NewDockerContainerDataSource,
+		NewDockerContainersDataSource,
 	}
 }
 
