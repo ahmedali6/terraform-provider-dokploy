@@ -34,6 +34,7 @@ type DestinationResourceModel struct {
 	Bucket          types.String `tfsdk:"bucket"`
 	Region          types.String `tfsdk:"region"`
 	Endpoint        types.String `tfsdk:"endpoint"`
+	ServerID        types.String `tfsdk:"server_id"`
 }
 
 func (r *DestinationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -80,6 +81,10 @@ func (r *DestinationResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Required:    true,
 				Description: "Endpoint URL for the storage provider",
 			},
+			"server_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "Server ID for remote server destinations",
+			},
 		},
 	}
 }
@@ -113,6 +118,10 @@ func (r *DestinationResource) Create(ctx context.Context, req resource.CreateReq
 		Region:          plan.Region.ValueString(),
 		Endpoint:        plan.Endpoint.ValueString(),
 	}
+	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
+		serverID := plan.ServerID.ValueString()
+		dest.ServerID = &serverID
+	}
 
 	createdDest, err := r.client.CreateDestination(dest)
 	if err != nil {
@@ -127,7 +136,12 @@ func (r *DestinationResource) Create(ctx context.Context, req resource.CreateReq
 	plan.Bucket = types.StringValue(createdDest.Bucket)
 	plan.Region = types.StringValue(createdDest.Region)
 	plan.Endpoint = types.StringValue(createdDest.Endpoint)
-	// Don't update secret_access_key from response as it's not returned
+	if createdDest.ServerID != nil {
+		plan.ServerID = types.StringValue(*createdDest.ServerID)
+	} else {
+		plan.ServerID = types.StringNull()
+	}
+	// Don't update secret_access_key from response as it's sensitive
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -157,6 +171,11 @@ func (r *DestinationResource) Read(ctx context.Context, req resource.ReadRequest
 	state.Bucket = types.StringValue(dest.Bucket)
 	state.Region = types.StringValue(dest.Region)
 	state.Endpoint = types.StringValue(dest.Endpoint)
+	if dest.ServerID != nil {
+		state.ServerID = types.StringValue(*dest.ServerID)
+	} else {
+		state.ServerID = types.StringNull()
+	}
 	// Don't update secret_access_key from API response
 
 	diags = resp.State.Set(ctx, state)
@@ -181,6 +200,18 @@ func (r *DestinationResource) Update(ctx context.Context, req resource.UpdateReq
 		Region:          plan.Region.ValueString(),
 		Endpoint:        plan.Endpoint.ValueString(),
 	}
+	// Handle ServerID updates explicitly:
+	// - Unknown: do not modify dest.ServerID (no change requested)
+	// - Non-null: set dest.ServerID to the provided value
+	// - Null (known): explicitly set dest.ServerID to nil so the API can unset it
+	if !plan.ServerID.IsUnknown() {
+		if plan.ServerID.IsNull() {
+			dest.ServerID = nil
+		} else {
+			serverID := plan.ServerID.ValueString()
+			dest.ServerID = &serverID
+		}
+	}
 
 	updatedDest, err := r.client.UpdateDestination(dest)
 	if err != nil {
@@ -194,6 +225,11 @@ func (r *DestinationResource) Update(ctx context.Context, req resource.UpdateReq
 	plan.Bucket = types.StringValue(updatedDest.Bucket)
 	plan.Region = types.StringValue(updatedDest.Region)
 	plan.Endpoint = types.StringValue(updatedDest.Endpoint)
+	if updatedDest.ServerID != nil {
+		plan.ServerID = types.StringValue(*updatedDest.ServerID)
+	} else {
+		plan.ServerID = types.StringNull()
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)

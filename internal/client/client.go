@@ -3489,16 +3489,17 @@ func (c *DokployClient) ListRegistries() ([]Registry, error) {
 
 // Destination represents a backup destination (S3, MinIO, etc.)
 type Destination struct {
-	DestinationID   string `json:"destinationId"`
-	Name            string `json:"name"`
-	Provider        string `json:"provider"`
-	AccessKey       string `json:"accessKey"`
-	SecretAccessKey string `json:"secretAccessKey"`
-	Bucket          string `json:"bucket"`
-	Region          string `json:"region"`
-	Endpoint        string `json:"endpoint"`
-	OrganizationID  string `json:"organizationId"`
-	CreatedAt       string `json:"createdAt"`
+	DestinationID   string  `json:"destinationId"`
+	Name            string  `json:"name"`
+	Provider        string  `json:"provider"`
+	AccessKey       string  `json:"accessKey"`
+	SecretAccessKey string  `json:"secretAccessKey"`
+	Bucket          string  `json:"bucket"`
+	Region          string  `json:"region"`
+	Endpoint        string  `json:"endpoint"`
+	OrganizationID  string  `json:"organizationId"`
+	CreatedAt       string  `json:"createdAt"`
+	ServerID        *string `json:"serverId,omitempty"`
 }
 
 func (c *DokployClient) CreateDestination(dest Destination) (*Destination, error) {
@@ -3510,6 +3511,9 @@ func (c *DokployClient) CreateDestination(dest Destination) (*Destination, error
 		"bucket":          dest.Bucket,
 		"region":          dest.Region,
 		"endpoint":        dest.Endpoint,
+	}
+	if dest.ServerID != nil {
+		payload["serverId"] = *dest.ServerID
 	}
 
 	resp, err := c.doRequest("POST", "destination.create", payload)
@@ -3548,6 +3552,9 @@ func (c *DokployClient) UpdateDestination(dest Destination) (*Destination, error
 		"bucket":          dest.Bucket,
 		"region":          dest.Region,
 		"endpoint":        dest.Endpoint,
+	}
+	if dest.ServerID != nil {
+		payload["serverId"] = *dest.ServerID
 	}
 
 	resp, err := c.doRequest("POST", "destination.update", payload)
@@ -5470,6 +5477,162 @@ func (c *DokployClient) ListVolumeBackups(serviceID, serviceType string) ([]Volu
 	}
 
 	var result []VolumeBackup
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// --- Docker ---
+
+// DockerContainer represents a container from docker.getContainers.
+type DockerContainer struct {
+	ContainerID string `json:"containerId"`
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	Ports       string `json:"ports"`
+	State       string `json:"state"`
+	Status      string `json:"status"`
+}
+
+// DockerContainerBasic represents a container from filtered queries.
+type DockerContainerBasic struct {
+	ContainerID string `json:"containerId"`
+	Name        string `json:"name"`
+	State       string `json:"state"`
+}
+
+// DockerContainerConfig represents detailed container configuration.
+type DockerContainerConfig struct {
+	ID              string                   `json:"Id"`
+	Name            string                   `json:"Name"`
+	Created         string                   `json:"Created"`
+	Path            string                   `json:"Path"`
+	Args            []string                 `json:"Args"`
+	Image           string                   `json:"Image"`
+	RestartCount    int                      `json:"RestartCount"`
+	Platform        string                   `json:"Platform"`
+	State           DockerContainerState     `json:"State"`
+	Config          DockerContainerDetails   `json:"Config"`
+	NetworkSettings map[string]interface{}   `json:"NetworkSettings"`
+	Mounts          []map[string]interface{} `json:"Mounts"`
+}
+
+// DockerContainerState represents container state.
+type DockerContainerState struct {
+	Status     string `json:"Status"`
+	Running    bool   `json:"Running"`
+	Paused     bool   `json:"Paused"`
+	Restarting bool   `json:"Restarting"`
+	OOMKilled  bool   `json:"OOMKilled"`
+	Dead       bool   `json:"Dead"`
+	Pid        int    `json:"Pid"`
+	ExitCode   int    `json:"ExitCode"`
+	Error      string `json:"Error"`
+	StartedAt  string `json:"StartedAt"`
+	FinishedAt string `json:"FinishedAt"`
+}
+
+// DockerContainerDetails represents container config details.
+type DockerContainerDetails struct {
+	Hostname   string            `json:"Hostname"`
+	User       string            `json:"User"`
+	Image      string            `json:"Image"`
+	WorkingDir string            `json:"WorkingDir"`
+	Entrypoint []string          `json:"Entrypoint"`
+	Cmd        []string          `json:"Cmd"`
+	Env        []string          `json:"Env"`
+	Labels     map[string]string `json:"Labels"`
+}
+
+// ListDockerContainers lists all Docker containers, optionally filtered by server.
+func (c *DokployClient) ListDockerContainers(serverID string) ([]DockerContainer, error) {
+	endpoint := "docker.getContainers"
+	if serverID != "" {
+		endpoint = fmt.Sprintf("docker.getContainers?serverId=%s", serverID)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []DockerContainer
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// GetDockerContainerConfig gets detailed configuration for a container.
+func (c *DokployClient) GetDockerContainerConfig(containerID, serverID string) (*DockerContainerConfig, error) {
+	endpoint := fmt.Sprintf("docker.getConfig?containerId=%s", containerID)
+	if serverID != "" {
+		endpoint = fmt.Sprintf("%s&serverId=%s", endpoint, serverID)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result DockerContainerConfig
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetDockerContainerConfigRaw gets the raw JSON configuration for a container.
+func (c *DokployClient) GetDockerContainerConfigRaw(containerID, serverID string) (string, error) {
+	endpoint := fmt.Sprintf("docker.getConfig?containerId=%s", containerID)
+	if serverID != "" {
+		endpoint = fmt.Sprintf("%s&serverId=%s", endpoint, serverID)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(resp), nil
+}
+
+// ListDockerContainersByAppNameMatch lists containers matching an app name pattern.
+func (c *DokployClient) ListDockerContainersByAppNameMatch(appName, appType, serverID string) ([]DockerContainerBasic, error) {
+	endpoint := fmt.Sprintf("docker.getContainersByAppNameMatch?appName=%s", appName)
+	if appType != "" {
+		endpoint = fmt.Sprintf("%s&appType=%s", endpoint, appType)
+	}
+	if serverID != "" {
+		endpoint = fmt.Sprintf("%s&serverId=%s", endpoint, serverID)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []DockerContainerBasic
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListDockerContainersByAppLabel lists containers by Dokploy app label.
+func (c *DokployClient) ListDockerContainersByAppLabel(appName, labelType, serverID string) ([]DockerContainerBasic, error) {
+	endpoint := fmt.Sprintf("docker.getContainersByAppLabel?appName=%s&type=%s", appName, labelType)
+	if serverID != "" {
+		endpoint = fmt.Sprintf("%s&serverId=%s", endpoint, serverID)
+	}
+
+	resp, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []DockerContainerBasic
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err
 	}

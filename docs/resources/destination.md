@@ -36,6 +36,10 @@ resource "dokploy_destination" "s3" {
 - `secret_access_key` (String, Sensitive) Secret access key for the storage provider
 - `storage_provider` (String) Storage provider type (e.g., 's3', 'minio')
 
+### Optional
+
+- `server_id` (String) Server ID for remote server destinations
+
 ### Read-Only
 
 - `id` (String) Unique identifier for the destination
