@@ -3,12 +3,12 @@
 page_title: "dokploy_docker_containers Data Source - dokploy"
 subcategory: ""
 description: |-
-  Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels.
+  Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels. Note: When using app_name with app_type or label_type filters, only container_id, name, and state fields are returned; image, ports, and status will be null.
 ---
 
 # dokploy_docker_containers (Data Source)
 
-Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels.
+Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels. Note: When using app_name with app_type or label_type filters, only container_id, name, and state fields are returned; image, ports, and status will be null.
 
 
 
@@ -18,8 +18,8 @@ Fetches Docker containers from Dokploy. Supports filtering by server, app name, 
 ### Optional
 
 - `app_name` (String) Filter containers by Dokploy app name pattern. Used with app_type or label_type filters.
-- `app_type` (String) App type filter when using app_name: 'application' or 'compose'. Triggers name pattern matching.
-- `label_type` (String) Label type filter when using app_name: 'standalone' or 'swarm'. Triggers label-based filtering.
+- `app_type` (String) App type filter when using app_name: 'application' or 'compose'. Triggers name pattern matching. Cannot be used together with label_type.
+- `label_type` (String) Label type filter when using app_name: 'standalone' or 'swarm'. Triggers label-based filtering. Cannot be used together with app_type.
 - `server_id` (String) Filter containers by remote server ID. Leave empty for the local server.
 
 ### Read-Only
@@ -32,8 +32,8 @@ Fetches Docker containers from Dokploy. Supports filtering by server, app name, 
 Read-Only:
 
 - `container_id` (String) Short container ID.
-- `image` (String) Container image.
+- `image` (String) Container image. Note: Only available when listing all containers (no app_name filter).
 - `name` (String) Container name.
-- `ports` (String) Exposed ports.
+- `ports` (String) Exposed ports. Note: Only available when listing all containers (no app_name filter).
 - `state` (String) Container state (running, exited, etc.).
-- `status` (String) Human-readable status (e.g., 'Up 5 hours').
+- `status` (String) Human-readable status (e.g., 'Up 5 hours'). Note: Only available when listing all containers (no app_name filter).

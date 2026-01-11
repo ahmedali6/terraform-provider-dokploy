@@ -43,7 +43,7 @@ func (d *DockerContainersDataSource) Metadata(_ context.Context, req datasource.
 
 func (d *DockerContainersDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels.",
+		Description: "Fetches Docker containers from Dokploy. Supports filtering by server, app name, and labels. Note: When using app_name with app_type or label_type filters, only container_id, name, and state fields are returned; image, ports, and status will be null.",
 		Attributes: map[string]schema.Attribute{
 			"server_id": schema.StringAttribute{
 				Optional:    true,
@@ -55,11 +55,11 @@ func (d *DockerContainersDataSource) Schema(_ context.Context, _ datasource.Sche
 			},
 			"app_type": schema.StringAttribute{
 				Optional:    true,
-				Description: "App type filter when using app_name: 'application' or 'compose'. Triggers name pattern matching.",
+				Description: "App type filter when using app_name: 'application' or 'compose'. Triggers name pattern matching. Cannot be used together with label_type.",
 			},
 			"label_type": schema.StringAttribute{
 				Optional:    true,
-				Description: "Label type filter when using app_name: 'standalone' or 'swarm'. Triggers label-based filtering.",
+				Description: "Label type filter when using app_name: 'standalone' or 'swarm'. Triggers label-based filtering. Cannot be used together with app_type.",
 			},
 			"containers": schema.ListNestedAttribute{
 				Computed:    true,
@@ -76,11 +76,11 @@ func (d *DockerContainersDataSource) Schema(_ context.Context, _ datasource.Sche
 						},
 						"image": schema.StringAttribute{
 							Computed:    true,
-							Description: "Container image.",
+							Description: "Container image. Note: Only available when listing all containers (no app_name filter).",
 						},
 						"ports": schema.StringAttribute{
 							Computed:    true,
-							Description: "Exposed ports.",
+							Description: "Exposed ports. Note: Only available when listing all containers (no app_name filter).",
 						},
 						"state": schema.StringAttribute{
 							Computed:    true,
@@ -88,7 +88,7 @@ func (d *DockerContainersDataSource) Schema(_ context.Context, _ datasource.Sche
 						},
 						"status": schema.StringAttribute{
 							Computed:    true,
-							Description: "Human-readable status (e.g., 'Up 5 hours').",
+							Description: "Human-readable status (e.g., 'Up 5 hours'). Note: Only available when listing all containers (no app_name filter).",
 						},
 					},
 				},
@@ -135,6 +135,23 @@ func (d *DockerContainersDataSource) Read(ctx context.Context, req datasource.Re
 	labelType := ""
 	if !data.LabelType.IsNull() {
 		labelType = data.LabelType.ValueString()
+	}
+
+	// Validate conflicting filter options
+	if appType != "" && labelType != "" {
+		resp.Diagnostics.AddError(
+			"Conflicting Filter Options",
+			"Cannot specify both app_type and label_type. Use app_type for name pattern matching or label_type for label-based filtering, but not both.",
+		)
+		return
+	}
+
+	// Warn if app_type or label_type is set without app_name
+	if appName == "" && (appType != "" || labelType != "") {
+		resp.Diagnostics.AddWarning(
+			"Filter Option Ignored",
+			"app_type and label_type require app_name to be set. These options will be ignored.",
+		)
 	}
 
 	// Determine which API to call based on filters

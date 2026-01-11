@@ -200,9 +200,17 @@ func (r *DestinationResource) Update(ctx context.Context, req resource.UpdateReq
 		Region:          plan.Region.ValueString(),
 		Endpoint:        plan.Endpoint.ValueString(),
 	}
-	if !plan.ServerID.IsNull() && !plan.ServerID.IsUnknown() {
-		serverID := plan.ServerID.ValueString()
-		dest.ServerID = &serverID
+	// Handle ServerID updates explicitly:
+	// - Unknown: do not modify dest.ServerID (no change requested)
+	// - Non-null: set dest.ServerID to the provided value
+	// - Null (known): explicitly set dest.ServerID to nil so the API can unset it
+	if !plan.ServerID.IsUnknown() {
+		if plan.ServerID.IsNull() {
+			dest.ServerID = nil
+		} else {
+			serverID := plan.ServerID.ValueString()
+			dest.ServerID = &serverID
+		}
 	}
 
 	updatedDest, err := r.client.UpdateDestination(dest)
