@@ -2074,25 +2074,28 @@ func (c *DokployClient) ListServerDeployments(serverID string) ([]Deployment, er
 // --- Database ---
 
 type Database struct {
-	ID            string `json:"databaseId"`
-	Name          string `json:"name"`
-	AppName       string `json:"appName"`
-	Type          string `json:"type"`
-	ProjectID     string `json:"projectId"`
-	EnvironmentID string `json:"environmentId"`
-	Version       string `json:"version"`
-	DockerImage   string `json:"dockerImage"`
-	ExternalPort  int64  `json:"externalPort"`
-	InternalPort  int64  `json:"internalPort"`
-	Password      string `json:"password"`
-	PostgresID    string `json:"postgresId"`
-	MysqlID       string `json:"mysqlId"`
-	MariadbID     string `json:"mariadbId"`
-	MongoID       string `json:"mongoId"`
-	RedisID       string `json:"redisId"`
+	ID              string `json:"databaseId"`
+	Name            string `json:"name"`
+	AppName         string `json:"appName"`
+	Type            string `json:"type"`
+	ProjectID       string `json:"projectId"`
+	EnvironmentID   string `json:"environmentId"`
+	Version         string `json:"version"`
+	DockerImage     string `json:"dockerImage"`
+	ExternalPort    int64  `json:"externalPort"`
+	InternalPort    int64  `json:"internalPort"`
+	Password        string `json:"password"`
+	DatabaseUser    string `json:"databaseUser"`
+	PostgresID      string `json:"postgresId"`
+	MysqlID         string `json:"mysqlId"`
+	MariadbID       string `json:"mariadbId"`
+	MongoID         string `json:"mongoId"`
+	RedisID         string `json:"redisId"`
+	ServerID        string `json:"serverId"`
+	ServerIPAddress string `json:"serverIpAddress"`
 }
 
-func (c *DokployClient) CreateDatabase(projectID, environmentID, name, dbType, password, dockerImage string) (*Database, error) {
+func (c *DokployClient) CreateDatabase(projectID, environmentID, name, dbType, password, dockerImage, username string) (*Database, error) {
 	var endpoint string
 	payload := map[string]string{
 		"environmentId":    environmentID,
@@ -2106,24 +2109,39 @@ func (c *DokployClient) CreateDatabase(projectID, environmentID, name, dbType, p
 	case "postgres":
 		endpoint = "postgres.create"
 		payload["databaseName"] = name
-		payload["databaseUser"] = "postgres"
+		if username == "" {
+			username = "postgres"
+		}
+		payload["databaseUser"] = username
 	case "mysql":
 		endpoint = "mysql.create"
 		payload["databaseName"] = name
-		payload["databaseUser"] = "root"
+		if username == "" {
+			username = "root"
+		}
+		payload["databaseUser"] = username
 		payload["databaseRootPassword"] = password // MySQL requires separate root password.
 	case "mariadb":
 		endpoint = "mariadb.create"
 		payload["databaseName"] = name
-		payload["databaseUser"] = "root"
+		if username == "" {
+			username = "root"
+		}
+		payload["databaseUser"] = username
 		payload["databaseRootPassword"] = password // MariaDB requires separate root password.
 	case "mongo":
 		// MongoDB does NOT accept databaseName in create API.
 		endpoint = "mongo.create"
-		payload["databaseUser"] = "mongo"
+		if username == "" {
+			username = "mongo"
+		}
+		payload["databaseUser"] = username
 	case "redis":
 		endpoint = "redis.create"
-		payload["databaseUser"] = "default"
+		if username == "" {
+			username = "default"
+		}
+		payload["databaseUser"] = username
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
