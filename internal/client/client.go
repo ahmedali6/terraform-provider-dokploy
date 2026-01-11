@@ -5485,7 +5485,7 @@ func (c *DokployClient) ListVolumeBackups(serviceID, serviceType string) ([]Volu
 
 // --- Docker ---
 
-// DockerContainer represents a container from docker.getContainers
+// DockerContainer represents a container from docker.getContainers.
 type DockerContainer struct {
 	ContainerID string `json:"containerId"`
 	Name        string `json:"name"`
@@ -5495,14 +5495,14 @@ type DockerContainer struct {
 	Status      string `json:"status"`
 }
 
-// DockerContainerBasic represents a container from filtered queries
+// DockerContainerBasic represents a container from filtered queries.
 type DockerContainerBasic struct {
 	ContainerID string `json:"containerId"`
 	Name        string `json:"name"`
 	State       string `json:"state"`
 }
 
-// DockerContainerConfig represents detailed container configuration
+// DockerContainerConfig represents detailed container configuration.
 type DockerContainerConfig struct {
 	ID              string                   `json:"Id"`
 	Name            string                   `json:"Name"`
@@ -5518,7 +5518,7 @@ type DockerContainerConfig struct {
 	Mounts          []map[string]interface{} `json:"Mounts"`
 }
 
-// DockerContainerState represents container state
+// DockerContainerState represents container state.
 type DockerContainerState struct {
 	Status     string `json:"Status"`
 	Running    bool   `json:"Running"`
@@ -5533,7 +5533,7 @@ type DockerContainerState struct {
 	FinishedAt string `json:"FinishedAt"`
 }
 
-// DockerContainerDetails represents container config details
+// DockerContainerDetails represents container config details.
 type DockerContainerDetails struct {
 	Hostname   string            `json:"Hostname"`
 	User       string            `json:"User"`
@@ -5545,7 +5545,7 @@ type DockerContainerDetails struct {
 	Labels     map[string]string `json:"Labels"`
 }
 
-// ListDockerContainers lists all Docker containers, optionally filtered by server
+// ListDockerContainers lists all Docker containers, optionally filtered by server.
 func (c *DokployClient) ListDockerContainers(serverID string) ([]DockerContainer, error) {
 	endpoint := "docker.getContainers"
 	if serverID != "" {
@@ -5564,7 +5564,7 @@ func (c *DokployClient) ListDockerContainers(serverID string) ([]DockerContainer
 	return result, nil
 }
 
-// GetDockerContainerConfig gets detailed configuration for a container
+// GetDockerContainerConfig gets detailed configuration for a container.
 func (c *DokployClient) GetDockerContainerConfig(containerID, serverID string) (*DockerContainerConfig, error) {
 	endpoint := fmt.Sprintf("docker.getConfig?containerId=%s", containerID)
 	if serverID != "" {
@@ -5583,7 +5583,7 @@ func (c *DokployClient) GetDockerContainerConfig(containerID, serverID string) (
 	return &result, nil
 }
 
-// GetDockerContainerConfigRaw gets the raw JSON configuration for a container
+// GetDockerContainerConfigRaw gets the raw JSON configuration for a container.
 func (c *DokployClient) GetDockerContainerConfigRaw(containerID, serverID string) (string, error) {
 	endpoint := fmt.Sprintf("docker.getConfig?containerId=%s", containerID)
 	if serverID != "" {
@@ -5598,7 +5598,7 @@ func (c *DokployClient) GetDockerContainerConfigRaw(containerID, serverID string
 	return string(resp), nil
 }
 
-// ListDockerContainersByAppNameMatch lists containers matching an app name pattern
+// ListDockerContainersByAppNameMatch lists containers matching an app name pattern.
 func (c *DokployClient) ListDockerContainersByAppNameMatch(appName, appType, serverID string) ([]DockerContainerBasic, error) {
 	endpoint := fmt.Sprintf("docker.getContainersByAppNameMatch?appName=%s", appName)
 	if appType != "" {
@@ -5620,7 +5620,7 @@ func (c *DokployClient) ListDockerContainersByAppNameMatch(appName, appType, ser
 	return result, nil
 }
 
-// ListDockerContainersByAppLabel lists containers by Dokploy app label
+// ListDockerContainersByAppLabel lists containers by Dokploy app label.
 func (c *DokployClient) ListDockerContainersByAppLabel(appName, labelType, serverID string) ([]DockerContainerBasic, error) {
 	endpoint := fmt.Sprintf("docker.getContainersByAppLabel?appName=%s&type=%s", appName, labelType)
 	if serverID != "" {
