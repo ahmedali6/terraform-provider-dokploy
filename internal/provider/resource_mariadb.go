@@ -29,6 +29,7 @@ type MariaDBResource struct {
 type MariaDBResourceModel struct {
 	ID                   types.String `tfsdk:"id"`
 	Name                 types.String `tfsdk:"name"`
+	AppNamePrefix        types.String `tfsdk:"app_name_prefix"`
 	AppName              types.String `tfsdk:"app_name"`
 	Description          types.String `tfsdk:"description"`
 	DatabaseName         types.String `tfsdk:"database_name"`
@@ -47,6 +48,8 @@ type MariaDBResourceModel struct {
 	ApplicationStatus    types.String `tfsdk:"application_status"`
 	Replicas             types.Int64  `tfsdk:"replicas"`
 	ServerID             types.String `tfsdk:"server_id"`
+	InternalConnection   types.String `tfsdk:"internal_connection"`
+	ExternalConnection   types.String `tfsdk:"external_connection"`
 }
 
 func (r *MariaDBResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,11 +71,18 @@ func (r *MariaDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:    true,
 				Description: "Name of the MariaDB instance.",
 			},
-			"app_name": schema.StringAttribute{
+			"app_name_prefix": schema.StringAttribute{
 				Required:    true,
-				Description: "Application name prefix for the MariaDB instance. Dokploy will append a random suffix.",
+				Description: "Application name prefix for the MariaDB instance. Dokploy will append a random suffix to create the final app_name.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"app_name": schema.StringAttribute{
+				Computed:    true,
+				Description: "The actual application name used by Dokploy (includes server-generated suffix).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -168,6 +178,20 @@ func (r *MariaDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"internal_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "Internal connection string for the MariaDB instance (format: mariadb://user:password@app_name/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"external_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "External connection string for the MariaDB instance (format: mariadb://user:password@server_ip:port/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -194,7 +218,7 @@ func (r *MariaDBResource) Create(ctx context.Context, req resource.CreateRequest
 
 	mariadb := client.MariaDB{
 		Name:                 plan.Name.ValueString(),
-		AppName:              plan.AppName.ValueString(),
+		AppName:              plan.AppNamePrefix.ValueString(),
 		Description:          plan.Description.ValueString(),
 		DatabaseName:         plan.DatabaseName.ValueString(),
 		DatabaseUser:         plan.DatabaseUser.ValueString(),
@@ -272,13 +296,7 @@ func (r *MariaDBResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Preserve app_name from state (user-provided prefix)
-	appNamePrefix := state.AppName
 	r.mapMariaDBToState(&state, mariadb)
-	// Restore the user-provided app_name prefix
-	if !appNamePrefix.IsNull() && !appNamePrefix.IsUnknown() {
-		state.AppName = appNamePrefix
-	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -322,10 +340,7 @@ func (r *MariaDBResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Preserve app_name from plan (user-provided prefix)
-	appNamePrefix := plan.AppName
 	r.mapMariaDBToState(&plan, updatedMariaDB)
-	plan.AppName = appNamePrefix
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -356,6 +371,7 @@ func (r *MariaDBResource) ImportState(ctx context.Context, req resource.ImportSt
 func (r *MariaDBResource) mapMariaDBToState(state *MariaDBResourceModel, mariadb *client.MariaDB) {
 	state.ID = types.StringValue(mariadb.MariaDBID)
 	state.Name = types.StringValue(mariadb.Name)
+	state.AppName = types.StringValue(mariadb.AppName)
 	state.EnvironmentID = types.StringValue(mariadb.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mariadb.ApplicationStatus)
 	state.DatabaseName = types.StringValue(mariadb.DatabaseName)
@@ -397,5 +413,12 @@ func (r *MariaDBResource) mapMariaDBToState(state *MariaDBResourceModel, mariadb
 	}
 	if !state.ServerID.IsNull() || mariadb.ServerID != "" {
 		state.ServerID = types.StringValue(mariadb.ServerID)
+	}
+
+	state.DatabasePassword = types.StringValue(mariadb.DatabasePassword)
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mariadb://%s:%s@%s/%s", mariadb.DatabaseUser, mariadb.DatabasePassword, mariadb.AppName, mariadb.DatabaseName))
+
+	if mariadb.ServerIP != "" && mariadb.ExternalPort > 0 {
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("mariadb://%s:%s@%s:%d/%s", mariadb.DatabaseUser, mariadb.DatabasePassword, mariadb.ServerIP, mariadb.ExternalPort, mariadb.DatabaseName))
 	}
 }

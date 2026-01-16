@@ -29,6 +29,9 @@ func TestAccMySQLResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "environment_id"),
 					resource.TestCheckResourceAttr("dokploy_mysql.test", "database_name", "testdb"),
 					resource.TestCheckResourceAttr("dokploy_mysql.test", "database_user", "testuser"),
+					resource.TestCheckResourceAttr("dokploy_mysql.test", "app_name_prefix", "testmysqlapp"),
+					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "app_name"),
+					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "internal_connection"),
 				),
 			},
 			// Update and Read testing
@@ -44,13 +47,13 @@ func TestAccMySQLResource(t *testing.T) {
 				ResourceName:            "dokploy_mysql.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"database_password", "database_root_password", "app_name"},
+				ImportStateVerifyIgnore: []string{"database_password", "database_root_password", "app_name_prefix", "internal_connection", "external_connection"},
 			},
 		},
 	})
 }
 
-func testAccMySQLResourceConfig(projectName, envName, mysqlName, appName, dbName, dbUser string) string {
+func testAccMySQLResourceConfig(projectName, envName, mysqlName, appNamePrefix, dbName, dbUser string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -69,17 +72,17 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mysql" "test" {
   name                   = "%s"
-  app_name               = "%s"
+  app_name_prefix        = "%s"
   database_name          = "%s"
   database_user          = "%s"
   database_password      = "test_mysql_password_123"
   database_root_password = "test_mysql_root_password_123"
   environment_id         = dokploy_environment.test.id
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mysqlName, appName, dbName, dbUser)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mysqlName, appNamePrefix, dbName, dbUser)
 }
 
-func testAccMySQLResourceConfigWithDescription(projectName, envName, mysqlName, appName, dbName, dbUser, description string) string {
+func testAccMySQLResourceConfigWithDescription(projectName, envName, mysqlName, appNamePrefix, dbName, dbUser, description string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -98,7 +101,7 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mysql" "test" {
   name                   = "%s"
-  app_name               = "%s"
+  app_name_prefix        = "%s"
   database_name          = "%s"
   database_user          = "%s"
   database_password      = "test_mysql_password_123"
@@ -106,5 +109,5 @@ resource "dokploy_mysql" "test" {
   environment_id         = dokploy_environment.test.id
   description            = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mysqlName, appName, dbName, dbUser, description)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mysqlName, appNamePrefix, dbName, dbUser, description)
 }

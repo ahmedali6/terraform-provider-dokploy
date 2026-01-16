@@ -29,6 +29,9 @@ func TestAccPostgresResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "environment_id"),
 					resource.TestCheckResourceAttr("dokploy_postgres.test", "database_name", "testdb"),
 					resource.TestCheckResourceAttr("dokploy_postgres.test", "database_user", "testuser"),
+					resource.TestCheckResourceAttr("dokploy_postgres.test", "app_name_prefix", "testpgapp"),
+					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "app_name"),
+					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "internal_connection"),
 				),
 			},
 			// Update and Read testing
@@ -44,13 +47,13 @@ func TestAccPostgresResource(t *testing.T) {
 				ResourceName:            "dokploy_postgres.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"database_password", "app_name"},
+				ImportStateVerifyIgnore: []string{"database_password", "app_name_prefix", "internal_connection", "external_connection"},
 			},
 		},
 	})
 }
 
-func testAccPostgresResourceConfig(projectName, envName, pgName, appName, dbName, dbUser string) string {
+func testAccPostgresResourceConfig(projectName, envName, pgName, appNamePrefix, dbName, dbUser string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -69,16 +72,16 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_postgres" "test" {
   name              = "%s"
-  app_name          = "%s"
+  app_name_prefix    = "%s"
   database_name     = "%s"
   database_user     = "%s"
   database_password = "test_postgres_password_123"
   environment_id    = dokploy_environment.test.id
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appName, dbName, dbUser)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appNamePrefix, dbName, dbUser)
 }
 
-func testAccPostgresResourceConfigWithDescription(projectName, envName, pgName, appName, dbName, dbUser, description string) string {
+func testAccPostgresResourceConfigWithDescription(projectName, envName, pgName, appNamePrefix, dbName, dbUser, description string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -97,14 +100,14 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_postgres" "test" {
   name              = "%s"
-  app_name          = "%s"
+  app_name_prefix    = "%s"
   database_name     = "%s"
   database_user     = "%s"
   database_password = "test_postgres_password_123"
   environment_id    = dokploy_environment.test.id
   description       = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appName, dbName, dbUser, description)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appNamePrefix, dbName, dbUser, description)
 }
 
 // TestAccPostgresResourceExtended tests PostgreSQL with extended settings.
@@ -143,7 +146,7 @@ func TestAccPostgresResourceExtended(t *testing.T) {
 	})
 }
 
-func testAccPostgresResourceExtendedConfig(projectName, envName, pgName, appName, dbName, dbUser, memReserve, memLimit string) string {
+func testAccPostgresResourceExtendedConfig(projectName, envName, pgName, appNamePrefix, dbName, dbUser, memReserve, memLimit string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -162,7 +165,7 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_postgres" "test" {
   name               = "%s"
-  app_name           = "%s"
+  app_name_prefix     = "%s"
   database_name      = "%s"
   database_user      = "%s"
   database_password  = "test_postgres_password_123"
@@ -170,5 +173,5 @@ resource "dokploy_postgres" "test" {
   memory_reservation = "%s"
   memory_limit       = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appName, dbName, dbUser, memReserve, memLimit)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, pgName, appNamePrefix, dbName, dbUser, memReserve, memLimit)
 }

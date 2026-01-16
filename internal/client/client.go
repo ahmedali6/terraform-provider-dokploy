@@ -3919,25 +3919,28 @@ func (c *DokployClient) DeleteServer(id string) error {
 
 // Postgres represents a PostgreSQL database instance.
 type Postgres struct {
-	PostgresID        string `json:"postgresId"`
-	Name              string `json:"name"`
-	AppName           string `json:"appName"`
-	Description       string `json:"description"`
-	DatabaseName      string `json:"databaseName"`
-	DatabaseUser      string `json:"databaseUser"`
-	DatabasePassword  string `json:"databasePassword"`
-	DockerImage       string `json:"dockerImage"`
-	Command           string `json:"command"`
-	Env               string `json:"env"`
-	MemoryReservation string `json:"memoryReservation"`
-	MemoryLimit       string `json:"memoryLimit"`
-	CPUReservation    string `json:"cpuReservation"`
-	CPULimit          string `json:"cpuLimit"`
-	ExternalPort      int    `json:"externalPort"`
-	EnvironmentID     string `json:"environmentId"`
-	ApplicationStatus string `json:"applicationStatus"`
-	Replicas          int    `json:"replicas"`
-	ServerID          string `json:"serverId"`
+	PostgresID         string `json:"postgresId"`
+	Name               string `json:"name"`
+	AppName            string `json:"appName"`
+	Description        string `json:"description"`
+	DatabaseName       string `json:"databaseName"`
+	DatabaseUser       string `json:"databaseUser"`
+	DatabasePassword   string `json:"databasePassword"`
+	DockerImage        string `json:"dockerImage"`
+	Command            string `json:"command"`
+	Env                string `json:"env"`
+	MemoryReservation  string `json:"memoryReservation"`
+	MemoryLimit        string `json:"memoryLimit"`
+	CPUReservation     string `json:"cpuReservation"`
+	CPULimit           string `json:"cpuLimit"`
+	ExternalPort       int    `json:"externalPort"`
+	EnvironmentID      string `json:"environmentId"`
+	ApplicationStatus  string `json:"applicationStatus"`
+	Replicas           int    `json:"replicas"`
+	ServerID           string `json:"serverId"`
+	ServerIP           string `json:"serverIp"`
+	InternalConnection string `json:"internalConnection"`
+	ExternalConnection string `json:"externalConnection"`
 }
 
 // CreatePostgres creates a new PostgreSQL database instance.
@@ -4089,6 +4092,9 @@ type MySQL struct {
 	ApplicationStatus    string `json:"applicationStatus"`
 	Replicas             int    `json:"replicas"`
 	ServerID             string `json:"serverId"`
+	ServerIP             string `json:"serverIp"`
+	InternalConnection   string `json:"internalConnection"`
+	ExternalConnection   string `json:"externalConnection"`
 }
 
 // CreateMySQL creates a new MySQL database instance.
@@ -4244,6 +4250,9 @@ type MariaDB struct {
 	ApplicationStatus    string `json:"applicationStatus"`
 	Replicas             int    `json:"replicas"`
 	ServerID             string `json:"serverId"`
+	ServerIP             string `json:"serverIp"`
+	InternalConnection   string `json:"internalConnection"`
+	ExternalConnection   string `json:"externalConnection"`
 }
 
 // CreateMariaDB creates a new MariaDB database instance.
@@ -4379,25 +4388,28 @@ func (c *DokployClient) DeleteMariaDB(id string) error {
 
 // MongoDB represents a MongoDB database instance.
 type MongoDB struct {
-	MongoID           string `json:"mongoId"`
-	Name              string `json:"name"`
-	AppName           string `json:"appName"`
-	Description       string `json:"description"`
-	DatabaseUser      string `json:"databaseUser"`
-	DatabasePassword  string `json:"databasePassword"`
-	ReplicaSets       bool   `json:"replicaSets"`
-	DockerImage       string `json:"dockerImage"`
-	Command           string `json:"command"`
-	Env               string `json:"env"`
-	MemoryReservation string `json:"memoryReservation"`
-	MemoryLimit       string `json:"memoryLimit"`
-	CPUReservation    string `json:"cpuReservation"`
-	CPULimit          string `json:"cpuLimit"`
-	ExternalPort      int    `json:"externalPort"`
-	EnvironmentID     string `json:"environmentId"`
-	ApplicationStatus string `json:"applicationStatus"`
-	Replicas          int    `json:"replicas"`
-	ServerID          string `json:"serverId"`
+	MongoID            string `json:"mongoId"`
+	Name               string `json:"name"`
+	AppName            string `json:"appName"`
+	Description        string `json:"description"`
+	DatabaseUser       string `json:"databaseUser"`
+	DatabasePassword   string `json:"databasePassword"`
+	ReplicaSets        bool   `json:"replicaSets"`
+	DockerImage        string `json:"dockerImage"`
+	Command            string `json:"command"`
+	Env                string `json:"env"`
+	MemoryReservation  string `json:"memoryReservation"`
+	MemoryLimit        string `json:"memoryLimit"`
+	CPUReservation     string `json:"cpuReservation"`
+	CPULimit           string `json:"cpuLimit"`
+	ExternalPort       int    `json:"externalPort"`
+	EnvironmentID      string `json:"environmentId"`
+	ApplicationStatus  string `json:"applicationStatus"`
+	Replicas           int    `json:"replicas"`
+	ServerID           string `json:"serverId"`
+	ServerIP           string `json:"serverIp"`
+	InternalConnection string `json:"internalConnection"`
+	ExternalConnection string `json:"externalConnection"`
 }
 
 // CreateMongoDB creates a new MongoDB database instance.
@@ -4531,23 +4543,27 @@ func (c *DokployClient) DeleteMongoDB(id string) error {
 
 // Redis represents a Redis database instance.
 type Redis struct {
-	RedisID           string `json:"redisId"`
-	Name              string `json:"name"`
-	AppName           string `json:"appName"`
-	Description       string `json:"description"`
-	DatabasePassword  string `json:"databasePassword"`
-	DockerImage       string `json:"dockerImage"`
-	Command           string `json:"command"`
-	Env               string `json:"env"`
-	MemoryReservation string `json:"memoryReservation"`
-	MemoryLimit       string `json:"memoryLimit"`
-	CPUReservation    string `json:"cpuReservation"`
-	CPULimit          string `json:"cpuLimit"`
-	ExternalPort      int    `json:"externalPort"`
-	EnvironmentID     string `json:"environmentId"`
-	ApplicationStatus string `json:"applicationStatus"`
-	Replicas          int    `json:"replicas"`
-	ServerID          string `json:"serverId"`
+	RedisID            string `json:"redisId"`
+	Name               string `json:"name"`
+	AppName            string `json:"appName"`
+	Description        string `json:"description"`
+	DatabaseUser       string `json:"databaseUser"`
+	DatabasePassword   string `json:"databasePassword"`
+	DockerImage        string `json:"dockerImage"`
+	Command            string `json:"command"`
+	Env                string `json:"env"`
+	MemoryReservation  string `json:"memoryReservation"`
+	MemoryLimit        string `json:"memoryLimit"`
+	CPUReservation     string `json:"cpuReservation"`
+	CPULimit           string `json:"cpuLimit"`
+	ExternalPort       int    `json:"externalPort"`
+	EnvironmentID      string `json:"environmentId"`
+	ApplicationStatus  string `json:"applicationStatus"`
+	Replicas           int    `json:"replicas"`
+	ServerID           string `json:"serverId"`
+	ServerIP           string `json:"serverIp"`
+	InternalConnection string `json:"internalConnection"`
+	ExternalConnection string `json:"externalConnection"`
 }
 
 // CreateRedis creates a new Redis database instance.

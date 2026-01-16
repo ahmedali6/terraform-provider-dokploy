@@ -27,25 +27,28 @@ type PostgresResource struct {
 }
 
 type PostgresResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	AppName           types.String `tfsdk:"app_name"`
-	Description       types.String `tfsdk:"description"`
-	DatabaseName      types.String `tfsdk:"database_name"`
-	DatabaseUser      types.String `tfsdk:"database_user"`
-	DatabasePassword  types.String `tfsdk:"database_password"`
-	DockerImage       types.String `tfsdk:"docker_image"`
-	Command           types.String `tfsdk:"command"`
-	Env               types.String `tfsdk:"env"`
-	MemoryReservation types.String `tfsdk:"memory_reservation"`
-	MemoryLimit       types.String `tfsdk:"memory_limit"`
-	CPUReservation    types.String `tfsdk:"cpu_reservation"`
-	CPULimit          types.String `tfsdk:"cpu_limit"`
-	ExternalPort      types.Int64  `tfsdk:"external_port"`
-	EnvironmentID     types.String `tfsdk:"environment_id"`
-	ApplicationStatus types.String `tfsdk:"application_status"`
-	Replicas          types.Int64  `tfsdk:"replicas"`
-	ServerID          types.String `tfsdk:"server_id"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	AppNamePrefix      types.String `tfsdk:"app_name_prefix"`
+	AppName            types.String `tfsdk:"app_name"`
+	Description        types.String `tfsdk:"description"`
+	DatabaseName       types.String `tfsdk:"database_name"`
+	DatabaseUser       types.String `tfsdk:"database_user"`
+	DatabasePassword   types.String `tfsdk:"database_password"`
+	DockerImage        types.String `tfsdk:"docker_image"`
+	Command            types.String `tfsdk:"command"`
+	Env                types.String `tfsdk:"env"`
+	MemoryReservation  types.String `tfsdk:"memory_reservation"`
+	MemoryLimit        types.String `tfsdk:"memory_limit"`
+	CPUReservation     types.String `tfsdk:"cpu_reservation"`
+	CPULimit           types.String `tfsdk:"cpu_limit"`
+	ExternalPort       types.Int64  `tfsdk:"external_port"`
+	EnvironmentID      types.String `tfsdk:"environment_id"`
+	ApplicationStatus  types.String `tfsdk:"application_status"`
+	Replicas           types.Int64  `tfsdk:"replicas"`
+	ServerID           types.String `tfsdk:"server_id"`
+	InternalConnection types.String `tfsdk:"internal_connection"`
+	ExternalConnection types.String `tfsdk:"external_connection"`
 }
 
 func (r *PostgresResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -67,11 +70,18 @@ func (r *PostgresResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Required:    true,
 				Description: "Name of the PostgreSQL instance.",
 			},
-			"app_name": schema.StringAttribute{
+			"app_name_prefix": schema.StringAttribute{
 				Required:    true,
-				Description: "Application name prefix for the PostgreSQL instance. Dokploy will append a random suffix.",
+				Description: "Application name prefix for the PostgreSQL instance. Dokploy will append a random suffix to create the final app_name.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"app_name": schema.StringAttribute{
+				Computed:    true,
+				Description: "The actual application name used by Dokploy (includes server-generated suffix).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -162,6 +172,20 @@ func (r *PostgresResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"internal_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "Internal connection string for the PostgreSQL instance (format: postgres://user:password@app_name/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"external_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "External connection string for the PostgreSQL instance (format: postgres://user:password@server_ip:port/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -188,7 +212,7 @@ func (r *PostgresResource) Create(ctx context.Context, req resource.CreateReques
 
 	postgres := client.Postgres{
 		Name:             plan.Name.ValueString(),
-		AppName:          plan.AppName.ValueString(),
+		AppName:          plan.AppNamePrefix.ValueString(),
 		Description:      plan.Description.ValueString(),
 		DatabaseName:     plan.DatabaseName.ValueString(),
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
@@ -265,13 +289,7 @@ func (r *PostgresResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	// Preserve app_name from state (user-provided prefix)
-	appNamePrefix := state.AppName
 	r.mapPostgresToState(&state, postgres)
-	// Restore the user-provided app_name prefix
-	if !appNamePrefix.IsNull() && !appNamePrefix.IsUnknown() {
-		state.AppName = appNamePrefix
-	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -314,10 +332,7 @@ func (r *PostgresResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	// Preserve app_name from plan (user-provided prefix)
-	appNamePrefix := plan.AppName
 	r.mapPostgresToState(&plan, updatedPostgres)
-	plan.AppName = appNamePrefix
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -348,6 +363,7 @@ func (r *PostgresResource) ImportState(ctx context.Context, req resource.ImportS
 func (r *PostgresResource) mapPostgresToState(state *PostgresResourceModel, postgres *client.Postgres) {
 	state.ID = types.StringValue(postgres.PostgresID)
 	state.Name = types.StringValue(postgres.Name)
+	state.AppName = types.StringValue(postgres.AppName)
 	state.EnvironmentID = types.StringValue(postgres.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(postgres.ApplicationStatus)
 	state.DatabaseName = types.StringValue(postgres.DatabaseName)
@@ -389,5 +405,12 @@ func (r *PostgresResource) mapPostgresToState(state *PostgresResourceModel, post
 	}
 	if !state.ServerID.IsNull() || postgres.ServerID != "" {
 		state.ServerID = types.StringValue(postgres.ServerID)
+	}
+
+	state.DatabasePassword = types.StringValue(postgres.DatabasePassword)
+	state.InternalConnection = types.StringValue(fmt.Sprintf("postgres://%s:%s@%s/%s", postgres.DatabaseUser, postgres.DatabasePassword, postgres.AppName, postgres.DatabaseName))
+
+	if postgres.ServerIP != "" && postgres.ExternalPort > 0 {
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("postgres://%s:%s@%s:%d/%s", postgres.DatabaseUser, postgres.DatabasePassword, postgres.ServerIP, postgres.ExternalPort, postgres.DatabaseName))
 	}
 }

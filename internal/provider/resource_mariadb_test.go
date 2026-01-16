@@ -29,6 +29,9 @@ func TestAccMariaDBResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "environment_id"),
 					resource.TestCheckResourceAttr("dokploy_mariadb.test", "database_name", "testdb"),
 					resource.TestCheckResourceAttr("dokploy_mariadb.test", "database_user", "testuser"),
+					resource.TestCheckResourceAttr("dokploy_mariadb.test", "app_name_prefix", "testmariadbapp"),
+					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "app_name"),
+					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "internal_connection"),
 				),
 			},
 			// Update and Read testing
@@ -44,13 +47,13 @@ func TestAccMariaDBResource(t *testing.T) {
 				ResourceName:            "dokploy_mariadb.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"database_password", "database_root_password", "app_name"},
+				ImportStateVerifyIgnore: []string{"database_password", "database_root_password", "app_name_prefix", "internal_connection", "external_connection"},
 			},
 		},
 	})
 }
 
-func testAccMariaDBResourceConfig(projectName, envName, mariadbName, appName, dbName, dbUser string) string {
+func testAccMariaDBResourceConfig(projectName, envName, mariadbName, appNamePrefix, dbName, dbUser string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -69,17 +72,17 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mariadb" "test" {
   name                   = "%s"
-  app_name               = "%s"
+  app_name_prefix        = "%s"
   database_name          = "%s"
   database_user          = "%s"
   database_password      = "test_mariadb_password_123"
   database_root_password = "test_mariadb_root_password_123"
   environment_id         = dokploy_environment.test.id
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mariadbName, appName, dbName, dbUser)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mariadbName, appNamePrefix, dbName, dbUser)
 }
 
-func testAccMariaDBResourceConfigWithDescription(projectName, envName, mariadbName, appName, dbName, dbUser, description string) string {
+func testAccMariaDBResourceConfigWithDescription(projectName, envName, mariadbName, appNamePrefix, dbName, dbUser, description string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -98,7 +101,7 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mariadb" "test" {
   name                   = "%s"
-  app_name               = "%s"
+  app_name_prefix        = "%s"
   database_name          = "%s"
   database_user          = "%s"
   database_password      = "test_mariadb_password_123"
@@ -106,5 +109,5 @@ resource "dokploy_mariadb" "test" {
   environment_id         = dokploy_environment.test.id
   description            = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mariadbName, appName, dbName, dbUser, description)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mariadbName, appNamePrefix, dbName, dbUser, description)
 }

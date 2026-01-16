@@ -29,6 +29,8 @@ func TestAccRedisResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_redis.test", "environment_id"),
 					resource.TestCheckResourceAttr("dokploy_redis.test", "app_name_prefix", "testredisapp"),
 					resource.TestCheckResourceAttrSet("dokploy_redis.test", "app_name"),
+					resource.TestCheckResourceAttr("dokploy_redis.test", "database_user", "default"),
+					resource.TestCheckResourceAttrSet("dokploy_redis.test", "internal_connection"),
 				),
 			},
 			// Update and Read testing
@@ -44,7 +46,7 @@ func TestAccRedisResource(t *testing.T) {
 				ResourceName:            "dokploy_redis.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"database_password", "app_name_prefix"}, // Password not returned by API, prefix is config-only.
+				ImportStateVerifyIgnore: []string{"database_password", "app_name_prefix", "internal_connection", "external_connection"},
 			},
 		},
 	})
@@ -103,7 +105,7 @@ resource "dokploy_redis" "test" {
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, redisName, appNamePrefix, description)
 }
 
-// TestAccRedisResourceExtended tests Redis with extended settings that trigger the needsUpdate path.
+// TestAccRedisResourceExtended tests Redis with extended settings that trigger needsUpdate path.
 func TestAccRedisResourceExtended(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
 	apiKey := os.Getenv("DOKPLOY_API_KEY")

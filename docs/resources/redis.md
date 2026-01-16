@@ -94,6 +94,7 @@ resource "dokploy_redis" "external" {
 - `command` (String) Custom command to run in the Redis container.
 - `cpu_limit` (String) CPU limit for the Redis container.
 - `cpu_reservation` (String) CPU reservation for the Redis container.
+- `database_user` (String) Database user name (defaults to 'default' for Redis).
 - `description` (String) Description of the Redis instance.
 - `docker_image` (String) Docker image to use for Redis (defaults to official Redis image).
 - `env` (String) Environment variables for the Redis container.
@@ -107,7 +108,9 @@ resource "dokploy_redis" "external" {
 
 - `app_name` (String) The actual application name used by Dokploy (includes server-generated suffix).
 - `application_status` (String) Current status of the Redis application.
+- `external_connection` (String) External connection string for the Redis instance (format: redis://:password@server_ip:port).
 - `id` (String) Unique identifier for the Redis instance.
+- `internal_connection` (String) Internal connection string for the Redis instance (format: redis://:password@app_name).
 
 ## Import
 

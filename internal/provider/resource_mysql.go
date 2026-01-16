@@ -29,6 +29,7 @@ type MySQLResource struct {
 type MySQLResourceModel struct {
 	ID                   types.String `tfsdk:"id"`
 	Name                 types.String `tfsdk:"name"`
+	AppNamePrefix        types.String `tfsdk:"app_name_prefix"`
 	AppName              types.String `tfsdk:"app_name"`
 	Description          types.String `tfsdk:"description"`
 	DatabaseName         types.String `tfsdk:"database_name"`
@@ -47,6 +48,8 @@ type MySQLResourceModel struct {
 	ApplicationStatus    types.String `tfsdk:"application_status"`
 	Replicas             types.Int64  `tfsdk:"replicas"`
 	ServerID             types.String `tfsdk:"server_id"`
+	InternalConnection   types.String `tfsdk:"internal_connection"`
+	ExternalConnection   types.String `tfsdk:"external_connection"`
 }
 
 func (r *MySQLResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,11 +71,18 @@ func (r *MySQLResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Required:    true,
 				Description: "Name of the MySQL instance.",
 			},
-			"app_name": schema.StringAttribute{
+			"app_name_prefix": schema.StringAttribute{
 				Required:    true,
-				Description: "Application name prefix for the MySQL instance. Dokploy will append a random suffix.",
+				Description: "Application name prefix for the MySQL instance. Dokploy will append a random suffix to create the final app_name.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"app_name": schema.StringAttribute{
+				Computed:    true,
+				Description: "The actual application name used by Dokploy (includes server-generated suffix).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -168,6 +178,20 @@ func (r *MySQLResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"internal_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "Internal connection string for the MySQL instance (format: mysql://user:password@app_name/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"external_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "External connection string for the MySQL instance (format: mysql://user:password@server_ip:port/database_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -194,7 +218,7 @@ func (r *MySQLResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	mysql := client.MySQL{
 		Name:                 plan.Name.ValueString(),
-		AppName:              plan.AppName.ValueString(),
+		AppName:              plan.AppNamePrefix.ValueString(),
 		Description:          plan.Description.ValueString(),
 		DatabaseName:         plan.DatabaseName.ValueString(),
 		DatabaseUser:         plan.DatabaseUser.ValueString(),
@@ -272,13 +296,7 @@ func (r *MySQLResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	// Preserve app_name from state (user-provided prefix)
-	appNamePrefix := state.AppName
 	r.mapMySQLToState(&state, mysql)
-	// Restore the user-provided app_name prefix
-	if !appNamePrefix.IsNull() && !appNamePrefix.IsUnknown() {
-		state.AppName = appNamePrefix
-	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -322,10 +340,7 @@ func (r *MySQLResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	// Preserve app_name from plan (user-provided prefix)
-	appNamePrefix := plan.AppName
 	r.mapMySQLToState(&plan, updatedMySQL)
-	plan.AppName = appNamePrefix
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -356,6 +371,7 @@ func (r *MySQLResource) ImportState(ctx context.Context, req resource.ImportStat
 func (r *MySQLResource) mapMySQLToState(state *MySQLResourceModel, mysql *client.MySQL) {
 	state.ID = types.StringValue(mysql.MySQLID)
 	state.Name = types.StringValue(mysql.Name)
+	state.AppName = types.StringValue(mysql.AppName)
 	state.EnvironmentID = types.StringValue(mysql.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mysql.ApplicationStatus)
 	state.DatabaseName = types.StringValue(mysql.DatabaseName)
@@ -397,5 +413,12 @@ func (r *MySQLResource) mapMySQLToState(state *MySQLResourceModel, mysql *client
 	}
 	if !state.ServerID.IsNull() || mysql.ServerID != "" {
 		state.ServerID = types.StringValue(mysql.ServerID)
+	}
+
+	state.DatabasePassword = types.StringValue(mysql.DatabasePassword)
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mysql://%s:%s@%s/%s", mysql.DatabaseUser, mysql.DatabasePassword, mysql.AppName, mysql.DatabaseName))
+
+	if mysql.ServerIP != "" && mysql.ExternalPort > 0 {
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("mysql://%s:%s@%s:%d/%s", mysql.DatabaseUser, mysql.DatabasePassword, mysql.ServerIP, mysql.ExternalPort, mysql.DatabaseName))
 	}
 }
