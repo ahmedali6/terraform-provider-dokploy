@@ -31,6 +31,8 @@ func TestAccRedisResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_redis.test", "app_name"),
 					resource.TestCheckResourceAttr("dokploy_redis.test", "database_user", "default"),
 					resource.TestCheckResourceAttrSet("dokploy_redis.test", "internal_connection"),
+					resource.TestCheckResourceAttr("dokploy_redis.test", "internal_port", "6379"),
+					resource.TestCheckResourceAttr("dokploy_redis.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing

@@ -42,6 +42,7 @@ Manages a PostgreSQL database instance in Dokploy.
 
 - `app_name` (String) The actual application name used by Dokploy (includes server-generated suffix).
 - `application_status` (String) Current status of the PostgreSQL application (idle, running, done, error).
-- `external_connection` (String) External connection string for the PostgreSQL instance (format: postgres://user:password@server_ip:port/database_name).
+- `external_connection` (String) External connection string for the PostgreSQL instance (format: postgres://user:password@server_ip:external_port/database_name).
 - `id` (String) Unique identifier for the PostgreSQL instance.
-- `internal_connection` (String) Internal connection string for the PostgreSQL instance (format: postgres://user:password@app_name/database_name).
+- `internal_connection` (String) Internal connection string for the PostgreSQL instance (format: postgres://user:password@app_name:internal_port/database_name).
+- `internal_port` (Number) Internal port used by the PostgreSQL instance (default: 5432).

@@ -4556,6 +4556,7 @@ type Redis struct {
 	MemoryLimit        string `json:"memoryLimit"`
 	CPUReservation     string `json:"cpuReservation"`
 	CPULimit           string `json:"cpuLimit"`
+	InternalPort       int    `json:"internalPort"`
 	ExternalPort       int    `json:"externalPort"`
 	EnvironmentID      string `json:"environmentId"`
 	ApplicationStatus  string `json:"applicationStatus"`

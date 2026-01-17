@@ -43,6 +43,7 @@ type MongoDBResourceModel struct {
 	MemoryLimit        types.String `tfsdk:"memory_limit"`
 	CPUReservation     types.String `tfsdk:"cpu_reservation"`
 	CPULimit           types.String `tfsdk:"cpu_limit"`
+	InternalPort       types.Int64  `tfsdk:"internal_port"`
 	ExternalPort       types.Int64  `tfsdk:"external_port"`
 	EnvironmentID      types.String `tfsdk:"environment_id"`
 	ApplicationStatus  types.String `tfsdk:"application_status"`
@@ -143,6 +144,10 @@ func (r *MongoDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "External port to expose the MongoDB instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the MongoDB instance (default: 27017).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the MongoDB instance in.",
@@ -174,14 +179,14 @@ func (r *MongoDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"internal_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "Internal connection string for the MongoDB instance (format: mongodb://user:password@app_name/database_name).",
+				Description: "Internal connection string for the MongoDB instance (format: mongodb://user:password@app_name:internal_port).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"external_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "External connection string for the MongoDB instance (format: mongodb://user:password@server_ip:port/database_name).",
+				Description: "External connection string for the MongoDB instance (format: mongodb://user:password@server_ip:external_port).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -409,9 +414,17 @@ func (r *MongoDBResource) mapMongoDBToState(state *MongoDBResourceModel, mongo *
 	}
 
 	state.DatabasePassword = types.StringValue(mongo.DatabasePassword)
-	state.InternalConnection = types.StringValue(fmt.Sprintf("mongodb://%s:%s@%s", mongo.DatabaseUser, mongo.DatabasePassword, mongo.AppName))
+
+	internalPort := mongo.ExternalPort
+	if internalPort == 0 {
+		internalPort = 27017
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mongodb://%s:%s@%s:%d", mongo.DatabaseUser, mongo.DatabasePassword, mongo.AppName, int64(internalPort)))
 
 	if mongo.ServerIP != "" && mongo.ExternalPort > 0 {
 		state.ExternalConnection = types.StringValue(fmt.Sprintf("mongodb://%s:%s@%s:%d", mongo.DatabaseUser, mongo.DatabasePassword, mongo.ServerIP, mongo.ExternalPort))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 }

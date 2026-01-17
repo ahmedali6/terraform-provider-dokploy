@@ -42,6 +42,7 @@ type PostgresResourceModel struct {
 	MemoryLimit        types.String `tfsdk:"memory_limit"`
 	CPUReservation     types.String `tfsdk:"cpu_reservation"`
 	CPULimit           types.String `tfsdk:"cpu_limit"`
+	InternalPort       types.Int64  `tfsdk:"internal_port"`
 	ExternalPort       types.Int64  `tfsdk:"external_port"`
 	EnvironmentID      types.String `tfsdk:"environment_id"`
 	ApplicationStatus  types.String `tfsdk:"application_status"`
@@ -143,6 +144,10 @@ func (r *PostgresResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional:    true,
 				Description: "External port to expose the PostgreSQL instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the PostgreSQL instance (default: 5432).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the PostgreSQL instance in.",
@@ -174,14 +179,14 @@ func (r *PostgresResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"internal_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "Internal connection string for the PostgreSQL instance (format: postgres://user:password@app_name/database_name).",
+				Description: "Internal connection string for the PostgreSQL instance (format: postgres://user:password@app_name:internal_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"external_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "External connection string for the PostgreSQL instance (format: postgres://user:password@server_ip:port/database_name).",
+				Description: "External connection string for the PostgreSQL instance (format: postgres://user:password@server_ip:external_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -408,9 +413,17 @@ func (r *PostgresResource) mapPostgresToState(state *PostgresResourceModel, post
 	}
 
 	state.DatabasePassword = types.StringValue(postgres.DatabasePassword)
-	state.InternalConnection = types.StringValue(fmt.Sprintf("postgres://%s:%s@%s/%s", postgres.DatabaseUser, postgres.DatabasePassword, postgres.AppName, postgres.DatabaseName))
+
+	internalPort := postgres.ExternalPort
+	if internalPort == 0 {
+		internalPort = 5432
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("postgres://%s:%s@%s:%d/%s", postgres.DatabaseUser, postgres.DatabasePassword, postgres.AppName, int64(internalPort), postgres.DatabaseName))
 
 	if postgres.ServerIP != "" && postgres.ExternalPort > 0 {
 		state.ExternalConnection = types.StringValue(fmt.Sprintf("postgres://%s:%s@%s:%d/%s", postgres.DatabaseUser, postgres.DatabasePassword, postgres.ServerIP, postgres.ExternalPort, postgres.DatabaseName))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 }

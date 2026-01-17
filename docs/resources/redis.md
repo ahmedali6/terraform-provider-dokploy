@@ -108,9 +108,10 @@ resource "dokploy_redis" "external" {
 
 - `app_name` (String) The actual application name used by Dokploy (includes server-generated suffix).
 - `application_status` (String) Current status of the Redis application.
-- `external_connection` (String) External connection string for the Redis instance (format: redis://:password@server_ip:port).
+- `external_connection` (String) External connection string for Redis instance (format: redis://user:password@server_ip:external_port).
 - `id` (String) Unique identifier for the Redis instance.
-- `internal_connection` (String) Internal connection string for the Redis instance (format: redis://:password@app_name).
+- `internal_connection` (String) Internal connection string for Redis instance (format: redis://user:password@app_name:internal_port).
+- `internal_port` (Number) Internal port used by the Redis instance (default: 6379).
 
 ## Import
 

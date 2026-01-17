@@ -41,6 +41,7 @@ type RedisResourceModel struct {
 	MemoryLimit        types.String `tfsdk:"memory_limit"`
 	CPUReservation     types.String `tfsdk:"cpu_reservation"`
 	CPULimit           types.String `tfsdk:"cpu_limit"`
+	InternalPort       types.Int64  `tfsdk:"internal_port"`
 	ExternalPort       types.Int64  `tfsdk:"external_port"`
 	EnvironmentID      types.String `tfsdk:"environment_id"`
 	ApplicationStatus  types.String `tfsdk:"application_status"`
@@ -133,6 +134,10 @@ func (r *RedisResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				Description: "External port to expose the Redis instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the Redis instance (default: 6379).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the Redis instance in.",
@@ -164,14 +169,14 @@ func (r *RedisResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"internal_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "Internal connection string for the Redis instance (format: redis://:password@app_name).",
+				Description: "Internal connection string for Redis instance (format: redis://user:password@app_name:internal_port).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"external_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "External connection string for the Redis instance (format: redis://:password@server_ip:port).",
+				Description: "External connection string for Redis instance (format: redis://user:password@server_ip:external_port).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -310,10 +315,18 @@ func (r *RedisResource) Create(ctx context.Context, req resource.CreateRequest, 
 	}
 
 	plan.DatabasePassword = types.StringValue(createdRedis.DatabasePassword)
-	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s", createdRedis.DatabasePassword, createdRedis.AppName))
+
+	internalPort := createdRedis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	plan.InternalPort = types.Int64Value(int64(internalPort))
+	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", createdRedis.DatabaseUser, createdRedis.DatabasePassword, createdRedis.AppName, int64(internalPort)))
 
 	if createdRedis.ServerIP != "" && createdRedis.ExternalPort > 0 {
-		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s:%d", createdRedis.DatabasePassword, createdRedis.ServerIP, createdRedis.ExternalPort))
+		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", createdRedis.DatabaseUser, createdRedis.DatabasePassword, createdRedis.ServerIP, createdRedis.ExternalPort))
+	} else {
+		plan.ExternalConnection = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -385,10 +398,18 @@ func (r *RedisResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	state.DatabasePassword = types.StringValue(redis.DatabasePassword)
-	state.InternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s", redis.DatabasePassword, redis.AppName))
+
+	internalPort := redis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", redis.DatabaseUser, redis.DatabasePassword, redis.AppName, int64(internalPort)))
 
 	if redis.ServerIP != "" && redis.ExternalPort > 0 {
-		state.ExternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s:%d", redis.DatabasePassword, redis.ServerIP, redis.ExternalPort))
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", redis.DatabaseUser, redis.DatabasePassword, redis.ServerIP, redis.ExternalPort))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, state)
@@ -469,10 +490,18 @@ func (r *RedisResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 
 	plan.DatabasePassword = types.StringValue(updatedRedis.DatabasePassword)
-	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s", updatedRedis.DatabasePassword, updatedRedis.AppName))
+
+	internalPort := updatedRedis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	plan.InternalPort = types.Int64Value(int64(internalPort))
+	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", updatedRedis.DatabaseUser, updatedRedis.DatabasePassword, updatedRedis.AppName, int64(internalPort)))
 
 	if updatedRedis.ServerIP != "" && updatedRedis.ExternalPort > 0 {
-		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://:%s@%s:%d", updatedRedis.DatabasePassword, updatedRedis.ServerIP, updatedRedis.ExternalPort))
+		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", updatedRedis.DatabaseUser, updatedRedis.DatabasePassword, updatedRedis.ServerIP, updatedRedis.ExternalPort))
+	} else {
+		plan.ExternalConnection = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, plan)

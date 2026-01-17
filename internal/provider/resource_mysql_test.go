@@ -32,6 +32,9 @@ func TestAccMySQLResource(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_mysql.test", "app_name_prefix", "testmysqlapp"),
 					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "app_name"),
 					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "internal_connection"),
+					resource.TestCheckResourceAttrSet("dokploy_mysql.test", "internal_port"),
+					resource.TestCheckResourceAttr("dokploy_mysql.test", "internal_port", "3306"),
+					resource.TestCheckResourceAttr("dokploy_mysql.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing

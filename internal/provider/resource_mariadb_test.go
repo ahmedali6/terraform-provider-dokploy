@@ -32,6 +32,9 @@ func TestAccMariaDBResource(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_mariadb.test", "app_name_prefix", "testmariadbapp"),
 					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "app_name"),
 					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "internal_connection"),
+					resource.TestCheckResourceAttrSet("dokploy_mariadb.test", "internal_port"),
+					resource.TestCheckResourceAttr("dokploy_mariadb.test", "internal_port", "3306"),
+					resource.TestCheckResourceAttr("dokploy_mariadb.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing

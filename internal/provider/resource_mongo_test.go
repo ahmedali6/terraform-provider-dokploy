@@ -32,6 +32,9 @@ func TestAccMongoDBResource(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_mongo.test", "app_name_prefix", "testmongoapp"),
 					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "app_name"),
 					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "internal_connection"),
+					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "internal_port"),
+					resource.TestCheckResourceAttr("dokploy_mongo.test", "internal_port", "27017"),
+					resource.TestCheckResourceAttr("dokploy_mongo.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing

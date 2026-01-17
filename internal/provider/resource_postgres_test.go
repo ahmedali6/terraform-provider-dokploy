@@ -32,6 +32,9 @@ func TestAccPostgresResource(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_postgres.test", "app_name_prefix", "testpgapp"),
 					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "app_name"),
 					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "internal_connection"),
+					resource.TestCheckResourceAttrSet("dokploy_postgres.test", "internal_port"),
+					resource.TestCheckResourceAttr("dokploy_postgres.test", "internal_port", "5432"),
+					resource.TestCheckResourceAttr("dokploy_postgres.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing

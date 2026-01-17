@@ -43,6 +43,7 @@ type MySQLResourceModel struct {
 	MemoryLimit          types.String `tfsdk:"memory_limit"`
 	CPUReservation       types.String `tfsdk:"cpu_reservation"`
 	CPULimit             types.String `tfsdk:"cpu_limit"`
+	InternalPort         types.Int64  `tfsdk:"internal_port"`
 	ExternalPort         types.Int64  `tfsdk:"external_port"`
 	EnvironmentID        types.String `tfsdk:"environment_id"`
 	ApplicationStatus    types.String `tfsdk:"application_status"`
@@ -149,6 +150,10 @@ func (r *MySQLResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				Description: "External port to expose the MySQL instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the MySQL instance (default: 3306).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the MySQL instance in.",
@@ -180,14 +185,14 @@ func (r *MySQLResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"internal_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "Internal connection string for the MySQL instance (format: mysql://user:password@app_name/database_name).",
+				Description: "Internal connection string for the MySQL instance (format: mysql://user:password@app_name:internal_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"external_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "External connection string for the MySQL instance (format: mysql://user:password@server_ip:port/database_name).",
+				Description: "External connection string for the MySQL instance (format: mysql://user:password@server_ip:external_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -416,9 +421,17 @@ func (r *MySQLResource) mapMySQLToState(state *MySQLResourceModel, mysql *client
 	}
 
 	state.DatabasePassword = types.StringValue(mysql.DatabasePassword)
-	state.InternalConnection = types.StringValue(fmt.Sprintf("mysql://%s:%s@%s/%s", mysql.DatabaseUser, mysql.DatabasePassword, mysql.AppName, mysql.DatabaseName))
+
+	internalPort := mysql.ExternalPort
+	if internalPort == 0 {
+		internalPort = 3306
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mysql://%s:%s@%s:%d/%s", mysql.DatabaseUser, mysql.DatabasePassword, mysql.AppName, int64(internalPort), mysql.DatabaseName))
 
 	if mysql.ServerIP != "" && mysql.ExternalPort > 0 {
 		state.ExternalConnection = types.StringValue(fmt.Sprintf("mysql://%s:%s@%s:%d/%s", mysql.DatabaseUser, mysql.DatabasePassword, mysql.ServerIP, mysql.ExternalPort, mysql.DatabaseName))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 }

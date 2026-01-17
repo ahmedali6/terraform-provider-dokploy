@@ -43,6 +43,7 @@ type MariaDBResourceModel struct {
 	MemoryLimit          types.String `tfsdk:"memory_limit"`
 	CPUReservation       types.String `tfsdk:"cpu_reservation"`
 	CPULimit             types.String `tfsdk:"cpu_limit"`
+	InternalPort         types.Int64  `tfsdk:"internal_port"`
 	ExternalPort         types.Int64  `tfsdk:"external_port"`
 	EnvironmentID        types.String `tfsdk:"environment_id"`
 	ApplicationStatus    types.String `tfsdk:"application_status"`
@@ -149,6 +150,10 @@ func (r *MariaDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "External port to expose the MariaDB instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the MariaDB instance (default: 3306).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the MariaDB instance in.",
@@ -180,14 +185,14 @@ func (r *MariaDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"internal_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "Internal connection string for the MariaDB instance (format: mariadb://user:password@app_name/database_name).",
+				Description: "Internal connection string for the MariaDB instance (format: mariadb://user:password@app_name:internal_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"external_connection": schema.StringAttribute{
 				Computed:    true,
-				Description: "External connection string for the MariaDB instance (format: mariadb://user:password@server_ip:port/database_name).",
+				Description: "External connection string for the MariaDB instance (format: mariadb://user:password@server_ip:external_port/database_name).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -416,9 +421,17 @@ func (r *MariaDBResource) mapMariaDBToState(state *MariaDBResourceModel, mariadb
 	}
 
 	state.DatabasePassword = types.StringValue(mariadb.DatabasePassword)
-	state.InternalConnection = types.StringValue(fmt.Sprintf("mariadb://%s:%s@%s/%s", mariadb.DatabaseUser, mariadb.DatabasePassword, mariadb.AppName, mariadb.DatabaseName))
+
+	internalPort := mariadb.ExternalPort
+	if internalPort == 0 {
+		internalPort = 3306
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mariadb://%s:%s@%s:%d/%s", mariadb.DatabaseUser, mariadb.DatabasePassword, mariadb.AppName, int64(internalPort), mariadb.DatabaseName))
 
 	if mariadb.ServerIP != "" && mariadb.ExternalPort > 0 {
 		state.ExternalConnection = types.StringValue(fmt.Sprintf("mariadb://%s:%s@%s:%d/%s", mariadb.DatabaseUser, mariadb.DatabasePassword, mariadb.ServerIP, mariadb.ExternalPort, mariadb.DatabaseName))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 }
