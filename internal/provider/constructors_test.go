@@ -2,20 +2,12 @@ package provider
 
 import (
 	"testing"
-
-	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
 func TestNewProjectResource(t *testing.T) {
 	r := NewProjectResource()
 	if r == nil {
 		t.Fatal("Expected project resource, got nil")
-	}
-
-	_, ok := r.(resource.Resource)
-	if !ok {
-		t.Error("Expected project resource to implement Resource interface")
 	}
 }
 
@@ -212,11 +204,6 @@ func TestNewServersDataSource(t *testing.T) {
 	ds := NewServersDataSource()
 	if ds == nil {
 		t.Fatal("Expected servers data source, got nil")
-	}
-
-	_, ok := ds.(datasource.DataSource)
-	if !ok {
-		t.Error("Expected servers data source to implement DataSource interface")
 	}
 }
 

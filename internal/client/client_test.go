@@ -47,7 +47,7 @@ func TestDoRequestSuccess(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id": "123", "name": "test"}`))
+		_, _ = w.Write([]byte(`{"id": "123", "name": "test"}`))
 	}))
 	defer server.Close()
 
@@ -70,7 +70,7 @@ func TestDoRequestGET(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"data": "test"}`))
+		_, _ = w.Write([]byte(`{"data": "test"}`))
 	}))
 	defer server.Close()
 
@@ -89,7 +89,7 @@ func TestDoRequestGET(t *testing.T) {
 func TestDoRequest404Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
+		_, _ = w.Write([]byte(`{"error": "not found"}`))
 	}))
 	defer server.Close()
 
@@ -108,7 +108,7 @@ func TestDoRequest404Error(t *testing.T) {
 func TestDoRequest400Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "bad request"}`))
+		_, _ = w.Write([]byte(`{"error": "bad request"}`))
 	}))
 	defer server.Close()
 
@@ -128,7 +128,7 @@ func TestDoRequest400Error(t *testing.T) {
 func TestDoRequest500Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "internal server error"}`))
+		_, _ = w.Write([]byte(`{"error": "internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -143,7 +143,7 @@ func TestDoRequest500Error(t *testing.T) {
 func TestDoRequestInvalidJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("invalid json"))
+		_, _ = w.Write([]byte("invalid json"))
 	}))
 	defer server.Close()
 
@@ -180,7 +180,7 @@ func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 func TestDoRequestWithCustomClient(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"success": true}`))
+		_, _ = w.Write([]byte(`{"success": true}`))
 	}))
 	defer server.Close()
 
@@ -207,7 +207,7 @@ func TestDoRequestWithNilBody(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -249,14 +249,14 @@ func TestDoRequestWithComplexBody(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var received map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&received)
+		_ = json.NewDecoder(r.Body).Decode(&received)
 
 		if received["string"] != "value" {
 			t.Errorf("Expected string value, got %v", received["string"])
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"created": true}`))
+		_, _ = w.Write([]byte(`{"created": true}`))
 	}))
 	defer server.Close()
 
@@ -275,7 +275,7 @@ func TestDoRequestWithComplexBody(t *testing.T) {
 func TestDoRequestEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
-		w.Write([]byte{})
+		_, _ = w.Write([]byte{})
 	}))
 	defer server.Close()
 
