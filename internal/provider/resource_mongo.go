@@ -28,25 +28,29 @@ type MongoDBResource struct {
 }
 
 type MongoDBResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	AppName           types.String `tfsdk:"app_name"`
-	Description       types.String `tfsdk:"description"`
-	DatabaseUser      types.String `tfsdk:"database_user"`
-	DatabasePassword  types.String `tfsdk:"database_password"`
-	ReplicaSets       types.Bool   `tfsdk:"replica_sets"`
-	DockerImage       types.String `tfsdk:"docker_image"`
-	Command           types.String `tfsdk:"command"`
-	Env               types.String `tfsdk:"env"`
-	MemoryReservation types.String `tfsdk:"memory_reservation"`
-	MemoryLimit       types.String `tfsdk:"memory_limit"`
-	CPUReservation    types.String `tfsdk:"cpu_reservation"`
-	CPULimit          types.String `tfsdk:"cpu_limit"`
-	ExternalPort      types.Int64  `tfsdk:"external_port"`
-	EnvironmentID     types.String `tfsdk:"environment_id"`
-	ApplicationStatus types.String `tfsdk:"application_status"`
-	Replicas          types.Int64  `tfsdk:"replicas"`
-	ServerID          types.String `tfsdk:"server_id"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	AppNamePrefix      types.String `tfsdk:"app_name_prefix"`
+	AppName            types.String `tfsdk:"app_name"`
+	Description        types.String `tfsdk:"description"`
+	DatabaseUser       types.String `tfsdk:"database_user"`
+	DatabasePassword   types.String `tfsdk:"database_password"`
+	ReplicaSets        types.Bool   `tfsdk:"replica_sets"`
+	DockerImage        types.String `tfsdk:"docker_image"`
+	Command            types.String `tfsdk:"command"`
+	Env                types.String `tfsdk:"env"`
+	MemoryReservation  types.String `tfsdk:"memory_reservation"`
+	MemoryLimit        types.String `tfsdk:"memory_limit"`
+	CPUReservation     types.String `tfsdk:"cpu_reservation"`
+	CPULimit           types.String `tfsdk:"cpu_limit"`
+	InternalPort       types.Int64  `tfsdk:"internal_port"`
+	ExternalPort       types.Int64  `tfsdk:"external_port"`
+	EnvironmentID      types.String `tfsdk:"environment_id"`
+	ApplicationStatus  types.String `tfsdk:"application_status"`
+	Replicas           types.Int64  `tfsdk:"replicas"`
+	ServerID           types.String `tfsdk:"server_id"`
+	InternalConnection types.String `tfsdk:"internal_connection"`
+	ExternalConnection types.String `tfsdk:"external_connection"`
 }
 
 func (r *MongoDBResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,11 +72,18 @@ func (r *MongoDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:    true,
 				Description: "Name of the MongoDB instance.",
 			},
-			"app_name": schema.StringAttribute{
+			"app_name_prefix": schema.StringAttribute{
 				Required:    true,
-				Description: "Application name prefix for the MongoDB instance. Dokploy will append a random suffix.",
+				Description: "Application name prefix for the MongoDB instance. Dokploy will append a random suffix to create the final app_name.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"app_name": schema.StringAttribute{
+				Computed:    true,
+				Description: "The actual application name used by Dokploy (includes server-generated suffix).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"description": schema.StringAttribute{
@@ -133,6 +144,10 @@ func (r *MongoDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Optional:    true,
 				Description: "External port to expose the MongoDB instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the MongoDB instance (default: 27017).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the MongoDB instance in.",
@@ -162,6 +177,20 @@ func (r *MongoDBResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"internal_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "Internal connection string for the MongoDB instance (format: mongodb://user:password@app_name:internal_port).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"external_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "External connection string for the MongoDB instance (format: mongodb://user:password@server_ip:external_port).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -188,7 +217,7 @@ func (r *MongoDBResource) Create(ctx context.Context, req resource.CreateRequest
 
 	mongo := client.MongoDB{
 		Name:             plan.Name.ValueString(),
-		AppName:          plan.AppName.ValueString(),
+		AppName:          plan.AppNamePrefix.ValueString(),
 		Description:      plan.Description.ValueString(),
 		DatabaseUser:     plan.DatabaseUser.ValueString(),
 		DatabasePassword: plan.DatabasePassword.ValueString(),
@@ -265,13 +294,7 @@ func (r *MongoDBResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Preserve app_name from state (user-provided prefix)
-	appNamePrefix := state.AppName
 	r.mapMongoDBToState(&state, mongo)
-	// Restore the user-provided app_name prefix
-	if !appNamePrefix.IsNull() && !appNamePrefix.IsUnknown() {
-		state.AppName = appNamePrefix
-	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -315,10 +338,7 @@ func (r *MongoDBResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Preserve app_name from plan (user-provided prefix)
-	appNamePrefix := plan.AppName
 	r.mapMongoDBToState(&plan, updatedMongo)
-	plan.AppName = appNamePrefix
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -349,6 +369,7 @@ func (r *MongoDBResource) ImportState(ctx context.Context, req resource.ImportSt
 func (r *MongoDBResource) mapMongoDBToState(state *MongoDBResourceModel, mongo *client.MongoDB) {
 	state.ID = types.StringValue(mongo.MongoID)
 	state.Name = types.StringValue(mongo.Name)
+	state.AppName = types.StringValue(mongo.AppName)
 	state.EnvironmentID = types.StringValue(mongo.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mongo.ApplicationStatus)
 	state.DatabaseUser = types.StringValue(mongo.DatabaseUser)
@@ -390,5 +411,20 @@ func (r *MongoDBResource) mapMongoDBToState(state *MongoDBResourceModel, mongo *
 	}
 	if !state.ServerID.IsNull() || mongo.ServerID != "" {
 		state.ServerID = types.StringValue(mongo.ServerID)
+	}
+
+	state.DatabasePassword = types.StringValue(mongo.DatabasePassword)
+
+	internalPort := mongo.ExternalPort
+	if internalPort == 0 {
+		internalPort = 27017
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("mongodb://%s:%s@%s:%d", mongo.DatabaseUser, mongo.DatabasePassword, mongo.AppName, int64(internalPort)))
+
+	if mongo.ServerIP != "" && mongo.ExternalPort > 0 {
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("mongodb://%s:%s@%s:%d", mongo.DatabaseUser, mongo.DatabasePassword, mongo.ServerIP, mongo.ExternalPort))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 }

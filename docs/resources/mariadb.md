@@ -17,7 +17,7 @@ Manages a MariaDB database instance in Dokploy.
 
 ### Required
 
-- `app_name` (String) Application name prefix for the MariaDB instance. Dokploy will append a random suffix.
+- `app_name_prefix` (String) Application name prefix for the MariaDB instance. Dokploy will append a random suffix to create the final app_name.
 - `database_name` (String) Name of the database to create.
 - `database_password` (String, Sensitive) Password for the database user.
 - `database_root_password` (String, Sensitive) Root password for the MariaDB instance.
@@ -41,5 +41,9 @@ Manages a MariaDB database instance in Dokploy.
 
 ### Read-Only
 
+- `app_name` (String) The actual application name used by Dokploy (includes server-generated suffix).
 - `application_status` (String) Current status of the MariaDB application (idle, running, done, error).
+- `external_connection` (String) External connection string for the MariaDB instance (format: mariadb://user:password@server_ip:external_port/database_name).
 - `id` (String) Unique identifier for the MariaDB instance.
+- `internal_connection` (String) Internal connection string for the MariaDB instance (format: mariadb://user:password@app_name:internal_port/database_name).
+- `internal_port` (Number) Internal port used by the MariaDB instance (default: 3306).

@@ -17,7 +17,7 @@ Manages a MongoDB database instance in Dokploy.
 
 ### Required
 
-- `app_name` (String) Application name prefix for the MongoDB instance. Dokploy will append a random suffix.
+- `app_name_prefix` (String) Application name prefix for the MongoDB instance. Dokploy will append a random suffix to create the final app_name.
 - `database_password` (String, Sensitive) Password for the database user.
 - `database_user` (String) Database user name.
 - `environment_id` (String) ID of the environment to deploy the MongoDB instance in.
@@ -40,5 +40,9 @@ Manages a MongoDB database instance in Dokploy.
 
 ### Read-Only
 
+- `app_name` (String) The actual application name used by Dokploy (includes server-generated suffix).
 - `application_status` (String) Current status of the MongoDB application (idle, running, done, error).
+- `external_connection` (String) External connection string for the MongoDB instance (format: mongodb://user:password@server_ip:external_port).
 - `id` (String) Unique identifier for the MongoDB instance.
+- `internal_connection` (String) Internal connection string for the MongoDB instance (format: mongodb://user:password@app_name:internal_port).
+- `internal_port` (Number) Internal port used by the MongoDB instance (default: 27017).

@@ -27,24 +27,28 @@ type RedisResource struct {
 }
 
 type RedisResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	AppNamePrefix     types.String `tfsdk:"app_name_prefix"`
-	AppName           types.String `tfsdk:"app_name"`
-	Description       types.String `tfsdk:"description"`
-	DatabasePassword  types.String `tfsdk:"database_password"`
-	DockerImage       types.String `tfsdk:"docker_image"`
-	Command           types.String `tfsdk:"command"`
-	Env               types.String `tfsdk:"env"`
-	MemoryReservation types.String `tfsdk:"memory_reservation"`
-	MemoryLimit       types.String `tfsdk:"memory_limit"`
-	CPUReservation    types.String `tfsdk:"cpu_reservation"`
-	CPULimit          types.String `tfsdk:"cpu_limit"`
-	ExternalPort      types.Int64  `tfsdk:"external_port"`
-	EnvironmentID     types.String `tfsdk:"environment_id"`
-	ApplicationStatus types.String `tfsdk:"application_status"`
-	Replicas          types.Int64  `tfsdk:"replicas"`
-	ServerID          types.String `tfsdk:"server_id"`
+	ID                 types.String `tfsdk:"id"`
+	Name               types.String `tfsdk:"name"`
+	AppNamePrefix      types.String `tfsdk:"app_name_prefix"`
+	AppName            types.String `tfsdk:"app_name"`
+	Description        types.String `tfsdk:"description"`
+	DatabaseUser       types.String `tfsdk:"database_user"`
+	DatabasePassword   types.String `tfsdk:"database_password"`
+	DockerImage        types.String `tfsdk:"docker_image"`
+	Command            types.String `tfsdk:"command"`
+	Env                types.String `tfsdk:"env"`
+	MemoryReservation  types.String `tfsdk:"memory_reservation"`
+	MemoryLimit        types.String `tfsdk:"memory_limit"`
+	CPUReservation     types.String `tfsdk:"cpu_reservation"`
+	CPULimit           types.String `tfsdk:"cpu_limit"`
+	InternalPort       types.Int64  `tfsdk:"internal_port"`
+	ExternalPort       types.Int64  `tfsdk:"external_port"`
+	EnvironmentID      types.String `tfsdk:"environment_id"`
+	ApplicationStatus  types.String `tfsdk:"application_status"`
+	Replicas           types.Int64  `tfsdk:"replicas"`
+	ServerID           types.String `tfsdk:"server_id"`
+	InternalConnection types.String `tfsdk:"internal_connection"`
+	ExternalConnection types.String `tfsdk:"external_connection"`
 }
 
 func (r *RedisResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -83,6 +87,11 @@ func (r *RedisResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"description": schema.StringAttribute{
 				Optional:    true,
 				Description: "Description of the Redis instance.",
+			},
+			"database_user": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Database user name (defaults to 'default' for Redis).",
 			},
 			"database_password": schema.StringAttribute{
 				Required:    true,
@@ -125,6 +134,10 @@ func (r *RedisResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				Description: "External port to expose the Redis instance.",
 			},
+			"internal_port": schema.Int64Attribute{
+				Computed:    true,
+				Description: "Internal port used by the Redis instance (default: 6379).",
+			},
 			"environment_id": schema.StringAttribute{
 				Required:    true,
 				Description: "ID of the environment to deploy the Redis instance in.",
@@ -152,6 +165,20 @@ func (r *RedisResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Description: "ID of the server to deploy the Redis instance on.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"internal_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "Internal connection string for Redis instance (format: redis://user:password@app_name:internal_port).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"external_connection": schema.StringAttribute{
+				Computed:    true,
+				Description: "External connection string for Redis instance (format: redis://user:password@server_ip:external_port).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 		},
@@ -187,6 +214,11 @@ func (r *RedisResource) Create(ctx context.Context, req resource.CreateRequest, 
 		DockerImage:      plan.DockerImage.ValueString(),
 		EnvironmentID:    plan.EnvironmentID.ValueString(),
 		ServerID:         plan.ServerID.ValueString(),
+	}
+
+	// Set default user for Redis (Redis doesn't support user management)
+	if plan.DatabaseUser.IsNull() || plan.DatabaseUser.IsUnknown() {
+		plan.DatabaseUser = types.StringValue("default")
 	}
 
 	createdRedis, err := r.client.CreateRedis(redis)
@@ -240,6 +272,8 @@ func (r *RedisResource) Create(ctx context.Context, req resource.CreateRequest, 
 	plan.AppName = types.StringValue(createdRedis.AppName)
 	plan.EnvironmentID = types.StringValue(createdRedis.EnvironmentID)
 	plan.ApplicationStatus = types.StringValue(createdRedis.ApplicationStatus)
+	// Redis doesn't support user management, always use "default"
+	plan.DatabaseUser = types.StringValue("default")
 
 	// Set computed fields that have defaults.
 	if createdRedis.DockerImage != "" {
@@ -280,6 +314,21 @@ func (r *RedisResource) Create(ctx context.Context, req resource.CreateRequest, 
 		plan.ServerID = types.StringValue(createdRedis.ServerID)
 	}
 
+	plan.DatabasePassword = types.StringValue(createdRedis.DatabasePassword)
+
+	internalPort := createdRedis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	plan.InternalPort = types.Int64Value(int64(internalPort))
+	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", createdRedis.DatabaseUser, createdRedis.DatabasePassword, createdRedis.AppName, int64(internalPort)))
+
+	if createdRedis.ServerIP != "" && createdRedis.ExternalPort > 0 {
+		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", createdRedis.DatabaseUser, createdRedis.DatabasePassword, createdRedis.ServerIP, createdRedis.ExternalPort))
+	} else {
+		plan.ExternalConnection = types.StringValue("")
+	}
+
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -308,6 +357,8 @@ func (r *RedisResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	state.AppName = types.StringValue(redis.AppName)
 	state.EnvironmentID = types.StringValue(redis.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(redis.ApplicationStatus)
+	// Redis doesn't support user management, always use "default"
+	state.DatabaseUser = types.StringValue("default")
 
 	// Update computed fields.
 	if redis.DockerImage != "" {
@@ -344,6 +395,21 @@ func (r *RedisResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 	if !state.ServerID.IsNull() || redis.ServerID != "" {
 		state.ServerID = types.StringValue(redis.ServerID)
+	}
+
+	state.DatabasePassword = types.StringValue(redis.DatabasePassword)
+
+	internalPort := redis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	state.InternalPort = types.Int64Value(int64(internalPort))
+	state.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", redis.DatabaseUser, redis.DatabasePassword, redis.AppName, int64(internalPort)))
+
+	if redis.ServerIP != "" && redis.ExternalPort > 0 {
+		state.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", redis.DatabaseUser, redis.DatabasePassword, redis.ServerIP, redis.ExternalPort))
+	} else {
+		state.ExternalConnection = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, state)
@@ -387,6 +453,7 @@ func (r *RedisResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	// Update the computed app_name from server.
 	plan.AppName = types.StringValue(updatedRedis.AppName)
 	plan.ApplicationStatus = types.StringValue(updatedRedis.ApplicationStatus)
+	plan.DatabaseUser = types.StringValue(updatedRedis.DatabaseUser)
 
 	// Update computed fields.
 	if updatedRedis.DockerImage != "" {
@@ -420,6 +487,21 @@ func (r *RedisResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 	if !plan.ExternalPort.IsNull() || updatedRedis.ExternalPort > 0 {
 		plan.ExternalPort = types.Int64Value(int64(updatedRedis.ExternalPort))
+	}
+
+	plan.DatabasePassword = types.StringValue(updatedRedis.DatabasePassword)
+
+	internalPort := updatedRedis.ExternalPort
+	if internalPort == 0 {
+		internalPort = 6379
+	}
+	plan.InternalPort = types.Int64Value(int64(internalPort))
+	plan.InternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", updatedRedis.DatabaseUser, updatedRedis.DatabasePassword, updatedRedis.AppName, int64(internalPort)))
+
+	if updatedRedis.ServerIP != "" && updatedRedis.ExternalPort > 0 {
+		plan.ExternalConnection = types.StringValue(fmt.Sprintf("redis://%s:%s@%s:%d", updatedRedis.DatabaseUser, updatedRedis.DatabasePassword, updatedRedis.ServerIP, updatedRedis.ExternalPort))
+	} else {
+		plan.ExternalConnection = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, plan)

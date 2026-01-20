@@ -29,6 +29,12 @@ func TestAccMongoDBResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "environment_id"),
 					resource.TestCheckResourceAttr("dokploy_mongo.test", "database_user", "testuser"),
 					resource.TestCheckResourceAttr("dokploy_mongo.test", "replica_sets", "false"),
+					resource.TestCheckResourceAttr("dokploy_mongo.test", "app_name_prefix", "testmongoapp"),
+					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "app_name"),
+					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "internal_connection"),
+					resource.TestCheckResourceAttrSet("dokploy_mongo.test", "internal_port"),
+					resource.TestCheckResourceAttr("dokploy_mongo.test", "internal_port", "27017"),
+					resource.TestCheckResourceAttr("dokploy_mongo.test", "external_connection", ""),
 				),
 			},
 			// Update and Read testing
@@ -44,13 +50,13 @@ func TestAccMongoDBResource(t *testing.T) {
 				ResourceName:            "dokploy_mongo.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"database_password", "app_name"},
+				ImportStateVerifyIgnore: []string{"database_password", "app_name_prefix", "internal_connection", "external_connection"},
 			},
 		},
 	})
 }
 
-func testAccMongoDBResourceConfig(projectName, envName, mongoName, appName, dbUser string) string {
+func testAccMongoDBResourceConfig(projectName, envName, mongoName, appNamePrefix, dbUser string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -69,15 +75,15 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mongo" "test" {
   name              = "%s"
-  app_name          = "%s"
+  app_name_prefix    = "%s"
   database_user     = "%s"
   database_password = "test_mongo_password_123"
   environment_id    = dokploy_environment.test.id
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appName, dbUser)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appNamePrefix, dbUser)
 }
 
-func testAccMongoDBResourceConfigWithDescription(projectName, envName, mongoName, appName, dbUser, description string) string {
+func testAccMongoDBResourceConfigWithDescription(projectName, envName, mongoName, appNamePrefix, dbUser, description string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -96,13 +102,13 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mongo" "test" {
   name              = "%s"
-  app_name          = "%s"
+  app_name_prefix    = "%s"
   database_user     = "%s"
   database_password = "test_mongo_password_123"
   environment_id    = dokploy_environment.test.id
   description       = "%s"
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appName, dbUser, description)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appNamePrefix, dbUser, description)
 }
 
 // TestAccMongoDBResourceWithReplicaSets tests MongoDB with replica sets enabled.
@@ -131,7 +137,7 @@ func TestAccMongoDBResourceWithReplicaSets(t *testing.T) {
 	})
 }
 
-func testAccMongoDBResourceWithReplicaSetsConfig(projectName, envName, mongoName, appName, dbUser string) string {
+func testAccMongoDBResourceWithReplicaSetsConfig(projectName, envName, mongoName, appNamePrefix, dbUser string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -150,11 +156,11 @@ resource "dokploy_environment" "test" {
 
 resource "dokploy_mongo" "test" {
   name              = "%s"
-  app_name          = "%s"
+  app_name_prefix    = "%s"
   database_user     = "%s"
   database_password = "test_mongo_password_123"
   environment_id    = dokploy_environment.test.id
   replica_sets      = true
 }
-`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appName, dbUser)
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, mongoName, appNamePrefix, dbUser)
 }
