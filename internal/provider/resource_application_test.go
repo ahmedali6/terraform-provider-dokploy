@@ -282,31 +282,31 @@ func TestAccApplicationResourceExtendedSettings(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create with extended settings
 			{
-				Config: testAccApplicationResourceExtendedConfig("test-extended-project", "test-extended-env", "test-extended-app", "Initial description", 1, 256, 128),
+				Config: testAccApplicationResourceExtendedConfig("test-extended-project", "test-extended-env", "test-extended-app", "Initial description", 1, "256m", "128m"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-extended-app"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "description", "Initial description"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "replicas", "1"),
-					resource.TestCheckResourceAttr("dokploy_application.test", "memory_limit", "256"),
-					resource.TestCheckResourceAttr("dokploy_application.test", "memory_reservation", "128"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "memory_limit", "256m"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "memory_reservation", "128m"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "env", "APP_ENV=test\nDEBUG=true"),
 				),
 			},
 			// Update extended settings
 			{
-				Config: testAccApplicationResourceExtendedConfig("test-extended-project", "test-extended-env", "test-extended-app", "Updated description", 2, 512, 256),
+				Config: testAccApplicationResourceExtendedConfig("test-extended-project", "test-extended-env", "test-extended-app", "Updated description", 2, "512m", "256m"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_application.test", "description", "Updated description"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "replicas", "2"),
-					resource.TestCheckResourceAttr("dokploy_application.test", "memory_limit", "512"),
-					resource.TestCheckResourceAttr("dokploy_application.test", "memory_reservation", "256"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "memory_limit", "512m"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "memory_reservation", "256m"),
 				),
 			},
 		},
 	})
 }
 
-func testAccApplicationResourceExtendedConfig(projectName, envName, appName, description string, replicas, memLimit, memReserve int) string {
+func testAccApplicationResourceExtendedConfig(projectName, envName, appName, description string, replicas int, memLimit, memReserve string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
   host    = "%s"
@@ -330,8 +330,8 @@ resource "dokploy_application" "test" {
   source_type        = "docker"
   docker_image       = "nginx:latest"
   replicas           = %d
-  memory_limit       = %d
-  memory_reservation = %d
+  memory_limit       = "%s"
+  memory_reservation = "%s"
   env                = "APP_ENV=test\nDEBUG=true"
   auto_deploy        = false
 }

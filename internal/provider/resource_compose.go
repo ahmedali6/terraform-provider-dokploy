@@ -651,6 +651,8 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		CustomGitSSHKeyId: plan.CustomGitSSHKeyID.ValueString(),
 		ComposePath:       plan.ComposePath.ValueString(),
 		AutoDeploy:        plan.AutoDeploy.ValueBool(),
+		// Environment variables
+		Env: plan.Env.ValueString(),
 		// Advanced configuration
 		ComposeType:               plan.ComposeType.ValueString(),
 		Command:                   plan.Command.ValueString(),
@@ -911,10 +913,8 @@ func readComposeIntoState(ctx context.Context, state *ComposeResourceModel, comp
 		state.GiteaBuildPath = types.StringValue(comp.GiteaBuildPath)
 	}
 
-	// Environment
-	if comp.Env != "" {
-		state.Env = types.StringValue(comp.Env)
-	}
+	// Environment - always update to reflect API value (allows detecting when env is cleared)
+	state.Env = types.StringValue(comp.Env)
 
 	// Runtime
 	state.AutoDeploy = types.BoolValue(comp.AutoDeploy)

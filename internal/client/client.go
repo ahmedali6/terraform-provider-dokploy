@@ -1694,10 +1694,8 @@ func (c *DokployClient) CreateCompose(comp Compose) (*Compose, error) {
 		updatePayload["giteaBuildPath"] = comp.GiteaBuildPath
 	}
 
-	// Environment variables.
-	if comp.Env != "" {
-		updatePayload["env"] = comp.Env
-	}
+	// Environment variables - always send to allow clearing.
+	updatePayload["env"] = comp.Env
 
 	// Advanced configuration
 	if comp.Command != "" {
@@ -1882,10 +1880,8 @@ func (c *DokployClient) UpdateCompose(comp Compose) (*Compose, error) {
 		payload["giteaBuildPath"] = comp.GiteaBuildPath
 	}
 
-	// Environment variables.
-	if comp.Env != "" {
-		payload["env"] = comp.Env
-	}
+	// Environment variables - always send to allow clearing.
+	payload["env"] = comp.Env
 
 	// Advanced configuration
 	if comp.Command != "" {
@@ -2401,23 +2397,27 @@ func (c *DokployClient) DeleteDatabaseWithType(id, dbType string) error {
 // --- Domain ---
 
 type Domain struct {
-	ID              string `json:"domainId"`
-	ApplicationID   string `json:"applicationId"`
-	ComposeID       string `json:"composeId"`
-	ServiceName     string `json:"serviceName"`
-	Host            string `json:"host"`
-	Path            string `json:"path"`
-	Port            int64  `json:"port"`
-	HTTPS           bool   `json:"https"`
-	CertificateType string `json:"certificateType"`
+	ID                 string `json:"domainId"`
+	ApplicationID      string `json:"applicationId"`
+	ComposeID          string `json:"composeId"`
+	ServiceName        string `json:"serviceName"`
+	Host               string `json:"host"`
+	Path               string `json:"path"`
+	Port               int64  `json:"port"`
+	HTTPS              bool   `json:"https"`
+	CertificateType    string `json:"certificateType"`
+	CustomCertResolver string `json:"customCertResolver"`
+	InternalPath       string `json:"internalPath"`
+	StripPath          bool   `json:"stripPath"`
 }
 
 func (c *DokployClient) CreateDomain(domain Domain) (*Domain, error) {
 	payload := map[string]interface{}{
-		"host":  domain.Host,
-		"path":  domain.Path,
-		"port":  domain.Port,
-		"https": domain.HTTPS,
+		"host":      domain.Host,
+		"path":      domain.Path,
+		"port":      domain.Port,
+		"https":     domain.HTTPS,
+		"stripPath": domain.StripPath,
 	}
 	// Set certificate type based on HTTPS setting
 	if domain.HTTPS {
@@ -2428,6 +2428,12 @@ func (c *DokployClient) CreateDomain(domain Domain) (*Domain, error) {
 		}
 	} else {
 		payload["certificateType"] = "none"
+	}
+	if domain.CustomCertResolver != "" {
+		payload["customCertResolver"] = domain.CustomCertResolver
+	}
+	if domain.InternalPath != "" {
+		payload["internalPath"] = domain.InternalPath
 	}
 	if domain.ApplicationID != "" {
 		payload["applicationId"] = domain.ApplicationID
@@ -2512,6 +2518,7 @@ func (c *DokployClient) UpdateDomain(domain Domain) (*Domain, error) {
 		"port":        domain.Port,
 		"https":       domain.HTTPS,
 		"serviceName": domain.ServiceName,
+		"stripPath":   domain.StripPath,
 	}
 	// Set certificate type based on HTTPS setting
 	if domain.HTTPS {
@@ -2522,6 +2529,12 @@ func (c *DokployClient) UpdateDomain(domain Domain) (*Domain, error) {
 		}
 	} else {
 		payload["certificateType"] = "none"
+	}
+	if domain.CustomCertResolver != "" {
+		payload["customCertResolver"] = domain.CustomCertResolver
+	}
+	if domain.InternalPath != "" {
+		payload["internalPath"] = domain.InternalPath
 	}
 	resp, err := c.doRequest("POST", "domain.update", payload)
 	if err != nil {
@@ -3592,22 +3605,23 @@ func (c *DokployClient) ListDestinations() ([]Destination, error) {
 
 // Backup represents a scheduled backup configuration.
 type Backup struct {
-	BackupID        string `json:"backupId"`
-	AppName         string `json:"appName"`
-	Schedule        string `json:"schedule"`
-	Enabled         bool   `json:"enabled"`
-	Database        string `json:"database"`
-	Prefix          string `json:"prefix"`
-	DestinationID   string `json:"destinationId"`
-	KeepLatestCount int    `json:"keepLatestCount"`
-	BackupType      string `json:"backupType"`   // "database" or "compose"
-	DatabaseType    string `json:"databaseType"` // "postgres", "mysql", "mariadb", "mongo"
-	PostgresID      string `json:"postgresId"`
-	MysqlID         string `json:"mysqlId"`
-	MariadbID       string `json:"mariadbId"`
-	MongoID         string `json:"mongoId"`
-	ComposeID       string `json:"composeId"`
-	ServiceName     string `json:"serviceName"`
+	BackupID        string      `json:"backupId"`
+	AppName         string      `json:"appName"`
+	Schedule        string      `json:"schedule"`
+	Enabled         bool        `json:"enabled"`
+	Database        string      `json:"database"`
+	Prefix          string      `json:"prefix"`
+	DestinationID   string      `json:"destinationId"`
+	KeepLatestCount int         `json:"keepLatestCount"`
+	BackupType      string      `json:"backupType"`   // "database" or "compose"
+	DatabaseType    string      `json:"databaseType"` // "postgres", "mysql", "mariadb", "mongo"
+	PostgresID      string      `json:"postgresId"`
+	MysqlID         string      `json:"mysqlId"`
+	MariadbID       string      `json:"mariadbId"`
+	MongoID         string      `json:"mongoId"`
+	ComposeID       string      `json:"composeId"`
+	ServiceName     string      `json:"serviceName"`
+	Metadata        interface{} `json:"metadata"`
 }
 
 func (c *DokployClient) CreateBackup(backup Backup) (*Backup, error) {
@@ -3643,6 +3657,9 @@ func (c *DokployClient) CreateBackup(backup Backup) (*Backup, error) {
 	}
 	if backup.ServiceName != "" {
 		payload["serviceName"] = backup.ServiceName
+	}
+	if backup.Metadata != nil {
+		payload["metadata"] = backup.Metadata
 	}
 
 	resp, err := c.doRequest("POST", "backup.create", payload)
@@ -3735,6 +3752,9 @@ func (c *DokployClient) UpdateBackup(backup Backup) (*Backup, error) {
 
 	if backup.KeepLatestCount > 0 {
 		payload["keepLatestCount"] = backup.KeepLatestCount
+	}
+	if backup.Metadata != nil {
+		payload["metadata"] = backup.Metadata
 	}
 
 	resp, err := c.doRequest("POST", "backup.update", payload)
@@ -4018,9 +4038,8 @@ func (c *DokployClient) UpdatePostgres(postgres Postgres) (*Postgres, error) {
 	if postgres.Command != "" {
 		payload["command"] = postgres.Command
 	}
-	if postgres.Env != "" {
-		payload["env"] = postgres.Env
-	}
+	// Always send env to allow clearing it (empty string is valid).
+	payload["env"] = postgres.Env
 	if postgres.MemoryReservation != "" {
 		payload["memoryReservation"] = postgres.MemoryReservation
 	}
@@ -4173,9 +4192,8 @@ func (c *DokployClient) UpdateMySQL(mysql MySQL) (*MySQL, error) {
 	if mysql.Command != "" {
 		payload["command"] = mysql.Command
 	}
-	if mysql.Env != "" {
-		payload["env"] = mysql.Env
-	}
+	// Always send env to allow clearing it (empty string is valid).
+	payload["env"] = mysql.Env
 	if mysql.MemoryReservation != "" {
 		payload["memoryReservation"] = mysql.MemoryReservation
 	}
@@ -4328,9 +4346,8 @@ func (c *DokployClient) UpdateMariaDB(mariadb MariaDB) (*MariaDB, error) {
 	if mariadb.Command != "" {
 		payload["command"] = mariadb.Command
 	}
-	if mariadb.Env != "" {
-		payload["env"] = mariadb.Env
-	}
+	// Always send env to allow clearing it (empty string is valid).
+	payload["env"] = mariadb.Env
 	if mariadb.MemoryReservation != "" {
 		payload["memoryReservation"] = mariadb.MemoryReservation
 	}
@@ -4480,9 +4497,8 @@ func (c *DokployClient) UpdateMongoDB(mongo MongoDB) (*MongoDB, error) {
 	if mongo.Command != "" {
 		payload["command"] = mongo.Command
 	}
-	if mongo.Env != "" {
-		payload["env"] = mongo.Env
-	}
+	// Always send env to allow clearing it (empty string is valid).
+	payload["env"] = mongo.Env
 	if mongo.MemoryReservation != "" {
 		payload["memoryReservation"] = mongo.MemoryReservation
 	}
@@ -4625,9 +4641,8 @@ func (c *DokployClient) UpdateRedis(redis Redis) (*Redis, error) {
 	if redis.Command != "" {
 		payload["command"] = redis.Command
 	}
-	if redis.Env != "" {
-		payload["env"] = redis.Env
-	}
+	// Always send env to allow clearing it (empty string is valid).
+	payload["env"] = redis.Env
 	if redis.MemoryReservation != "" {
 		payload["memoryReservation"] = redis.MemoryReservation
 	}
@@ -4685,20 +4700,22 @@ type GitlabProviderListItem struct {
 
 // GitlabProvider is the full structure used for create/update operations.
 type GitlabProvider struct {
-	ID             string `json:"gitlabId"`
-	GitProviderId  string `json:"gitProviderId"`
-	Name           string `json:"name"`
-	GitlabUrl      string `json:"gitlabUrl"`
-	ApplicationId  string `json:"applicationId"`
-	RedirectUri    string `json:"redirectUri"`
-	Secret         string `json:"secret"`
-	AccessToken    string `json:"accessToken"`
-	RefreshToken   string `json:"refreshToken"`
-	GroupName      string `json:"groupName"`
-	ExpiresAt      int64  `json:"expiresAt"`
-	AuthId         string `json:"authId"`
-	OrganizationID string `json:"organizationId"`
-	CreatedAt      string `json:"createdAt"`
+	ID                string          `json:"gitlabId"`
+	GitProviderId     string          `json:"gitProviderId"`
+	GitProvider       GitProviderInfo `json:"gitProvider"`
+	Name              string          `json:"name"`
+	GitlabUrl         string          `json:"gitlabUrl"`
+	GitlabInternalUrl string          `json:"gitlabInternalUrl"`
+	ApplicationId     string          `json:"applicationId"`
+	RedirectUri       string          `json:"redirectUri"`
+	Secret            string          `json:"secret"`
+	AccessToken       string          `json:"accessToken"`
+	RefreshToken      string          `json:"refreshToken"`
+	GroupName         string          `json:"groupName"`
+	ExpiresAt         int64           `json:"expiresAt"`
+	AuthId            string          `json:"authId"`
+	OrganizationID    string          `json:"organizationId"`
+	CreatedAt         string          `json:"createdAt"`
 }
 
 func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabProvider, error) {
@@ -4729,6 +4746,9 @@ func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabPr
 	if provider.ExpiresAt != 0 {
 		payload["expiresAt"] = provider.ExpiresAt
 	}
+	if provider.GitlabInternalUrl != "" {
+		payload["gitlabInternalUrl"] = provider.GitlabInternalUrl
+	}
 
 	resp, err := c.doRequest("POST", "gitlab.create", payload)
 	if err != nil {
@@ -4738,6 +4758,9 @@ func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabPr
 	// Try to unmarshal the response
 	var result GitlabProvider
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+			result.GitProviderId = result.GitProvider.GitProviderId
+		}
 		return &result, nil
 	}
 
@@ -4746,6 +4769,9 @@ func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabPr
 		GitlabProvider GitlabProvider `json:"gitlab"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.GitlabProvider.ID != "" {
+		if wrapper.GitlabProvider.GitProviderId == "" && wrapper.GitlabProvider.GitProvider.GitProviderId != "" {
+			wrapper.GitlabProvider.GitProviderId = wrapper.GitlabProvider.GitProvider.GitProviderId
+		}
 		return &wrapper.GitlabProvider, nil
 	}
 
@@ -4778,18 +4804,32 @@ func (c *DokployClient) GetGitlabProvider(id string) (*GitlabProvider, error) {
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err
 	}
+	// The gitlab.one endpoint may return gitProviderId nested in a gitProvider object.
+	// Fall back to the nested value when the top-level field is empty.
+	if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+		result.GitProviderId = result.GitProvider.GitProviderId
+	}
+	if result.Name == "" && result.GitProvider.Name != "" {
+		result.Name = result.GitProvider.Name
+	}
+	if result.OrganizationID == "" && result.GitProvider.OrganizationID != "" {
+		result.OrganizationID = result.GitProvider.OrganizationID
+	}
+	if result.CreatedAt == "" && result.GitProvider.CreatedAt != "" {
+		result.CreatedAt = result.GitProvider.CreatedAt
+	}
 	return &result, nil
 }
 
 func (c *DokployClient) UpdateGitlabProvider(provider GitlabProvider) (*GitlabProvider, error) {
+	// gitlabId, gitlabUrl, gitProviderId, name are required by the API.
 	payload := map[string]interface{}{
-		"gitlabId": provider.ID,
-		"name":     provider.Name,
+		"gitlabId":      provider.ID,
+		"name":          provider.Name,
+		"gitlabUrl":     provider.GitlabUrl,
+		"gitProviderId": provider.GitProviderId,
 	}
 
-	if provider.GitlabUrl != "" {
-		payload["gitlabUrl"] = provider.GitlabUrl
-	}
 	if provider.ApplicationId != "" {
 		payload["applicationId"] = provider.ApplicationId
 	}
@@ -4811,8 +4851,8 @@ func (c *DokployClient) UpdateGitlabProvider(provider GitlabProvider) (*GitlabPr
 	if provider.ExpiresAt != 0 {
 		payload["expiresAt"] = provider.ExpiresAt
 	}
-	if provider.GitProviderId != "" {
-		payload["gitProviderId"] = provider.GitProviderId
+	if provider.GitlabInternalUrl != "" {
+		payload["gitlabInternalUrl"] = provider.GitlabInternalUrl
 	}
 	if provider.AuthId != "" {
 		payload["authId"] = provider.AuthId
@@ -4883,17 +4923,18 @@ type BitbucketProviderListItem struct {
 
 // BitbucketProvider is the full structure used for create/update operations.
 type BitbucketProvider struct {
-	ID                     string `json:"bitbucketId"`
-	GitProviderId          string `json:"gitProviderId"`
-	Name                   string `json:"name"`
-	BitbucketUsername      string `json:"bitbucketUsername"`
-	BitbucketEmail         string `json:"bitbucketEmail"`
-	AppPassword            string `json:"appPassword"`
-	ApiToken               string `json:"apiToken"`
-	BitbucketWorkspaceName string `json:"bitbucketWorkspaceName"`
-	AuthId                 string `json:"authId"`
-	OrganizationID         string `json:"organizationId"`
-	CreatedAt              string `json:"createdAt"`
+	ID                     string          `json:"bitbucketId"`
+	GitProviderId          string          `json:"gitProviderId"`
+	GitProvider            GitProviderInfo `json:"gitProvider"`
+	Name                   string          `json:"name"`
+	BitbucketUsername      string          `json:"bitbucketUsername"`
+	BitbucketEmail         string          `json:"bitbucketEmail"`
+	AppPassword            string          `json:"appPassword"`
+	ApiToken               string          `json:"apiToken"`
+	BitbucketWorkspaceName string          `json:"bitbucketWorkspaceName"`
+	AuthId                 string          `json:"authId"`
+	OrganizationID         string          `json:"organizationId"`
+	CreatedAt              string          `json:"createdAt"`
 }
 
 func (c *DokployClient) CreateBitbucketProvider(provider BitbucketProvider) (*BitbucketProvider, error) {
@@ -4926,6 +4967,9 @@ func (c *DokployClient) CreateBitbucketProvider(provider BitbucketProvider) (*Bi
 	// Try to unmarshal the response
 	var result BitbucketProvider
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+			result.GitProviderId = result.GitProvider.GitProviderId
+		}
 		return &result, nil
 	}
 
@@ -4934,6 +4978,9 @@ func (c *DokployClient) CreateBitbucketProvider(provider BitbucketProvider) (*Bi
 		BitbucketProvider BitbucketProvider `json:"bitbucket"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.BitbucketProvider.ID != "" {
+		if wrapper.BitbucketProvider.GitProviderId == "" && wrapper.BitbucketProvider.GitProvider.GitProviderId != "" {
+			wrapper.BitbucketProvider.GitProviderId = wrapper.BitbucketProvider.GitProvider.GitProviderId
+		}
 		return &wrapper.BitbucketProvider, nil
 	}
 
@@ -4965,6 +5012,20 @@ func (c *DokployClient) GetBitbucketProvider(id string) (*BitbucketProvider, err
 	var result BitbucketProvider
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err
+	}
+	// The bitbucket.one endpoint may return gitProviderId nested in a gitProvider object.
+	// Fall back to the nested value when the top-level field is empty.
+	if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+		result.GitProviderId = result.GitProvider.GitProviderId
+	}
+	if result.Name == "" && result.GitProvider.Name != "" {
+		result.Name = result.GitProvider.Name
+	}
+	if result.OrganizationID == "" && result.GitProvider.OrganizationID != "" {
+		result.OrganizationID = result.GitProvider.OrganizationID
+	}
+	if result.CreatedAt == "" && result.GitProvider.CreatedAt != "" {
+		result.CreatedAt = result.GitProvider.CreatedAt
 	}
 	return &result, nil
 }
@@ -5052,22 +5113,24 @@ type GiteaProviderListItem struct {
 
 // GiteaProvider is the full structure used for create/update operations.
 type GiteaProvider struct {
-	ID                  string `json:"giteaId"`
-	GitProviderId       string `json:"gitProviderId"`
-	Name                string `json:"name"`
-	GiteaUrl            string `json:"giteaUrl"`
-	RedirectUri         string `json:"redirectUri"`
-	ClientId            string `json:"clientId"`
-	ClientSecret        string `json:"clientSecret"`
-	AccessToken         string `json:"accessToken"`
-	RefreshToken        string `json:"refreshToken"`
-	ExpiresAt           int64  `json:"expiresAt"`
-	Scopes              string `json:"scopes"`
-	LastAuthenticatedAt int64  `json:"lastAuthenticatedAt"`
-	GiteaUsername       string `json:"giteaUsername"`
-	OrganizationName    string `json:"organizationName"`
-	OrganizationID      string `json:"organizationId"`
-	CreatedAt           string `json:"createdAt"`
+	ID                  string          `json:"giteaId"`
+	GitProviderId       string          `json:"gitProviderId"`
+	GitProvider         GitProviderInfo `json:"gitProvider"`
+	Name                string          `json:"name"`
+	GiteaUrl            string          `json:"giteaUrl"`
+	GiteaInternalUrl    string          `json:"giteaInternalUrl"`
+	RedirectUri         string          `json:"redirectUri"`
+	ClientId            string          `json:"clientId"`
+	ClientSecret        string          `json:"clientSecret"`
+	AccessToken         string          `json:"accessToken"`
+	RefreshToken        string          `json:"refreshToken"`
+	ExpiresAt           int64           `json:"expiresAt"`
+	Scopes              string          `json:"scopes"`
+	LastAuthenticatedAt int64           `json:"lastAuthenticatedAt"`
+	GiteaUsername       string          `json:"giteaUsername"`
+	OrganizationName    string          `json:"organizationName"`
+	OrganizationID      string          `json:"organizationId"`
+	CreatedAt           string          `json:"createdAt"`
 }
 
 func (c *DokployClient) CreateGiteaProvider(provider GiteaProvider) (*GiteaProvider, error) {
@@ -5106,6 +5169,9 @@ func (c *DokployClient) CreateGiteaProvider(provider GiteaProvider) (*GiteaProvi
 	if provider.OrganizationName != "" {
 		payload["organizationName"] = provider.OrganizationName
 	}
+	if provider.GiteaInternalUrl != "" {
+		payload["giteaInternalUrl"] = provider.GiteaInternalUrl
+	}
 
 	resp, err := c.doRequest("POST", "gitea.create", payload)
 	if err != nil {
@@ -5115,6 +5181,9 @@ func (c *DokployClient) CreateGiteaProvider(provider GiteaProvider) (*GiteaProvi
 	// Try to unmarshal the response
 	var result GiteaProvider
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+			result.GitProviderId = result.GitProvider.GitProviderId
+		}
 		return &result, nil
 	}
 
@@ -5123,6 +5192,9 @@ func (c *DokployClient) CreateGiteaProvider(provider GiteaProvider) (*GiteaProvi
 		GiteaProvider GiteaProvider `json:"gitea"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.GiteaProvider.ID != "" {
+		if wrapper.GiteaProvider.GitProviderId == "" && wrapper.GiteaProvider.GitProvider.GitProviderId != "" {
+			wrapper.GiteaProvider.GitProviderId = wrapper.GiteaProvider.GitProvider.GitProviderId
+		}
 		return &wrapper.GiteaProvider, nil
 	}
 
@@ -5155,18 +5227,32 @@ func (c *DokployClient) GetGiteaProvider(id string) (*GiteaProvider, error) {
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err
 	}
+	// The gitea.one endpoint may return gitProviderId nested in a gitProvider object.
+	// Fall back to the nested value when the top-level field is empty.
+	if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+		result.GitProviderId = result.GitProvider.GitProviderId
+	}
+	if result.Name == "" && result.GitProvider.Name != "" {
+		result.Name = result.GitProvider.Name
+	}
+	if result.OrganizationID == "" && result.GitProvider.OrganizationID != "" {
+		result.OrganizationID = result.GitProvider.OrganizationID
+	}
+	if result.CreatedAt == "" && result.GitProvider.CreatedAt != "" {
+		result.CreatedAt = result.GitProvider.CreatedAt
+	}
 	return &result, nil
 }
 
 func (c *DokployClient) UpdateGiteaProvider(provider GiteaProvider) (*GiteaProvider, error) {
+	// giteaId, giteaUrl, gitProviderId, name are required by the API.
 	payload := map[string]interface{}{
-		"giteaId": provider.ID,
-		"name":    provider.Name,
+		"giteaId":       provider.ID,
+		"name":          provider.Name,
+		"giteaUrl":      provider.GiteaUrl,
+		"gitProviderId": provider.GitProviderId,
 	}
 
-	if provider.GiteaUrl != "" {
-		payload["giteaUrl"] = provider.GiteaUrl
-	}
 	if provider.RedirectUri != "" {
 		payload["redirectUri"] = provider.RedirectUri
 	}
@@ -5197,8 +5283,8 @@ func (c *DokployClient) UpdateGiteaProvider(provider GiteaProvider) (*GiteaProvi
 	if provider.OrganizationName != "" {
 		payload["organizationName"] = provider.OrganizationName
 	}
-	if provider.GitProviderId != "" {
-		payload["gitProviderId"] = provider.GitProviderId
+	if provider.GiteaInternalUrl != "" {
+		payload["giteaInternalUrl"] = provider.GiteaInternalUrl
 	}
 
 	resp, err := c.doRequest("POST", "gitea.update", payload)
@@ -5438,6 +5524,8 @@ func (c *DokployClient) UpdateVolumeBackup(backup VolumeBackup) (*VolumeBackup, 
 		"prefix":         backup.Prefix,
 		"cronExpression": backup.CronExpression,
 		"destinationId":  backup.DestinationID,
+		"serviceType":    backup.ServiceType,
+		"appName":        backup.AppName,
 	}
 
 	if backup.ServiceName != nil && *backup.ServiceName != "" {
@@ -5448,6 +5536,29 @@ func (c *DokployClient) UpdateVolumeBackup(backup VolumeBackup) (*VolumeBackup, 
 	}
 	payload["turnOff"] = backup.TurnOff
 	payload["enabled"] = backup.Enabled
+
+	// Include service IDs so the API can identify the correct service
+	if backup.ApplicationID != nil {
+		payload["applicationId"] = *backup.ApplicationID
+	}
+	if backup.PostgresID != nil {
+		payload["postgresId"] = *backup.PostgresID
+	}
+	if backup.MysqlID != nil {
+		payload["mysqlId"] = *backup.MysqlID
+	}
+	if backup.MariadbID != nil {
+		payload["mariadbId"] = *backup.MariadbID
+	}
+	if backup.MongoID != nil {
+		payload["mongoId"] = *backup.MongoID
+	}
+	if backup.RedisID != nil {
+		payload["redisId"] = *backup.RedisID
+	}
+	if backup.ComposeID != nil {
+		payload["composeId"] = *backup.ComposeID
+	}
 
 	resp, err := c.doRequest("POST", "volumeBackups.update", payload)
 	if err != nil {

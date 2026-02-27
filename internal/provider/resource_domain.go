@@ -6,11 +6,14 @@ import (
 	"strings"
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -26,17 +29,20 @@ type DomainResource struct {
 }
 
 type DomainResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	ApplicationID     types.String `tfsdk:"application_id"`
-	ComposeID         types.String `tfsdk:"compose_id"`
-	ServiceName       types.String `tfsdk:"service_name"`
-	Host              types.String `tfsdk:"host"`
-	Path              types.String `tfsdk:"path"`
-	Port              types.Int64  `tfsdk:"port"`
-	HTTPS             types.Bool   `tfsdk:"https"`
-	CertificateType   types.String `tfsdk:"certificate_type"`
-	GenerateTraefikMe types.Bool   `tfsdk:"generate_traefik_me"`
-	RedeployOnUpdate  types.Bool   `tfsdk:"redeploy_on_update"`
+	ID                 types.String `tfsdk:"id"`
+	ApplicationID      types.String `tfsdk:"application_id"`
+	ComposeID          types.String `tfsdk:"compose_id"`
+	ServiceName        types.String `tfsdk:"service_name"`
+	Host               types.String `tfsdk:"host"`
+	Path               types.String `tfsdk:"path"`
+	Port               types.Int64  `tfsdk:"port"`
+	HTTPS              types.Bool   `tfsdk:"https"`
+	CertificateType    types.String `tfsdk:"certificate_type"`
+	CustomCertResolver types.String `tfsdk:"custom_cert_resolver"`
+	InternalPath       types.String `tfsdk:"internal_path"`
+	StripPath          types.Bool   `tfsdk:"strip_path"`
+	GenerateTraefikMe  types.Bool   `tfsdk:"generate_traefik_me"`
+	RedeployOnUpdate   types.Bool   `tfsdk:"redeploy_on_update"`
 }
 
 func (r *DomainResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -92,7 +98,24 @@ func (r *DomainResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"certificate_type": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Certificate type: 'none', 'letsencrypt'. Defaults to 'letsencrypt' when https is true.",
+				Description: "Certificate type: 'none', 'letsencrypt', or 'custom'.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("letsencrypt", "none", "custom"),
+				},
+			},
+			"custom_cert_resolver": schema.StringAttribute{
+				Optional:    true,
+				Description: "Custom certificate resolver name (used when certificate_type is 'custom').",
+			},
+			"internal_path": schema.StringAttribute{
+				Optional:    true,
+				Description: "Internal path prefix used by Traefik for routing.",
+			},
+			"strip_path": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "Whether to strip the path prefix before forwarding to the service.",
 			},
 			"generate_traefik_me": schema.BoolAttribute{
 				Optional:    true,
@@ -175,14 +198,17 @@ func (r *DomainResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	domain := client.Domain{
-		ApplicationID:   plan.ApplicationID.ValueString(),
-		ComposeID:       plan.ComposeID.ValueString(),
-		ServiceName:     plan.ServiceName.ValueString(),
-		Host:            plan.Host.ValueString(),
-		Path:            plan.Path.ValueString(),
-		Port:            plan.Port.ValueInt64(),
-		HTTPS:           plan.HTTPS.ValueBool(),
-		CertificateType: plan.CertificateType.ValueString(),
+		ApplicationID:      plan.ApplicationID.ValueString(),
+		ComposeID:          plan.ComposeID.ValueString(),
+		ServiceName:        plan.ServiceName.ValueString(),
+		Host:               plan.Host.ValueString(),
+		Path:               plan.Path.ValueString(),
+		Port:               plan.Port.ValueInt64(),
+		HTTPS:              plan.HTTPS.ValueBool(),
+		CertificateType:    plan.CertificateType.ValueString(),
+		CustomCertResolver: plan.CustomCertResolver.ValueString(),
+		InternalPath:       plan.InternalPath.ValueString(),
+		StripPath:          plan.StripPath.ValueBool(),
 	}
 
 	createdDomain, err := r.client.CreateDomain(domain)
@@ -194,6 +220,13 @@ func (r *DomainResource) Create(ctx context.Context, req resource.CreateRequest,
 	plan.ID = types.StringValue(createdDomain.ID)
 	plan.ServiceName = types.StringValue(createdDomain.ServiceName)
 	plan.CertificateType = types.StringValue(createdDomain.CertificateType)
+	plan.StripPath = types.BoolValue(createdDomain.StripPath)
+	if createdDomain.CustomCertResolver != "" {
+		plan.CustomCertResolver = types.StringValue(createdDomain.CustomCertResolver)
+	}
+	if createdDomain.InternalPath != "" {
+		plan.InternalPath = types.StringValue(createdDomain.InternalPath)
+	}
 
 	// Trigger Redeploy if requested
 	if !plan.RedeployOnUpdate.IsNull() && plan.RedeployOnUpdate.ValueBool() {
@@ -242,6 +275,17 @@ func (r *DomainResource) Read(ctx context.Context, req resource.ReadRequest, res
 			state.HTTPS = types.BoolValue(d.HTTPS)
 			state.ServiceName = types.StringValue(d.ServiceName)
 			state.CertificateType = types.StringValue(d.CertificateType)
+			state.StripPath = types.BoolValue(d.StripPath)
+			if d.CustomCertResolver != "" {
+				state.CustomCertResolver = types.StringValue(d.CustomCertResolver)
+			} else {
+				state.CustomCertResolver = types.StringNull()
+			}
+			if d.InternalPath != "" {
+				state.InternalPath = types.StringValue(d.InternalPath)
+			} else {
+				state.InternalPath = types.StringNull()
+			}
 			if d.ApplicationID != "" {
 				state.ApplicationID = types.StringValue(d.ApplicationID)
 			}
@@ -271,15 +315,18 @@ func (r *DomainResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	domain := client.Domain{
-		ID:              plan.ID.ValueString(),
-		ApplicationID:   plan.ApplicationID.ValueString(),
-		ComposeID:       plan.ComposeID.ValueString(),
-		ServiceName:     plan.ServiceName.ValueString(),
-		Host:            plan.Host.ValueString(),
-		Path:            plan.Path.ValueString(),
-		Port:            plan.Port.ValueInt64(),
-		HTTPS:           plan.HTTPS.ValueBool(),
-		CertificateType: plan.CertificateType.ValueString(),
+		ID:                 plan.ID.ValueString(),
+		ApplicationID:      plan.ApplicationID.ValueString(),
+		ComposeID:          plan.ComposeID.ValueString(),
+		ServiceName:        plan.ServiceName.ValueString(),
+		Host:               plan.Host.ValueString(),
+		Path:               plan.Path.ValueString(),
+		Port:               plan.Port.ValueInt64(),
+		HTTPS:              plan.HTTPS.ValueBool(),
+		CertificateType:    plan.CertificateType.ValueString(),
+		CustomCertResolver: plan.CustomCertResolver.ValueString(),
+		InternalPath:       plan.InternalPath.ValueString(),
+		StripPath:          plan.StripPath.ValueBool(),
 	}
 
 	updatedDomain, err := r.client.UpdateDomain(domain)
@@ -294,6 +341,17 @@ func (r *DomainResource) Update(ctx context.Context, req resource.UpdateRequest,
 	plan.HTTPS = types.BoolValue(updatedDomain.HTTPS)
 	plan.ServiceName = types.StringValue(updatedDomain.ServiceName)
 	plan.CertificateType = types.StringValue(updatedDomain.CertificateType)
+	plan.StripPath = types.BoolValue(updatedDomain.StripPath)
+	if updatedDomain.CustomCertResolver != "" {
+		plan.CustomCertResolver = types.StringValue(updatedDomain.CustomCertResolver)
+	} else {
+		plan.CustomCertResolver = types.StringNull()
+	}
+	if updatedDomain.InternalPath != "" {
+		plan.InternalPath = types.StringValue(updatedDomain.InternalPath)
+	} else {
+		plan.InternalPath = types.StringNull()
+	}
 
 	// Trigger Redeploy if requested
 	if !plan.RedeployOnUpdate.IsNull() && plan.RedeployOnUpdate.ValueBool() {

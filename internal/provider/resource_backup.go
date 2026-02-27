@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -43,6 +44,7 @@ type BackupResourceModel struct {
 	Prefix          types.String `tfsdk:"prefix"`
 	Database        types.String `tfsdk:"database"`
 	KeepLatestCount types.Int64  `tfsdk:"keep_latest_count"`
+	Metadata        types.String `tfsdk:"metadata"`
 }
 
 func (r *BackupResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -85,9 +87,9 @@ func (r *BackupResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"database_type": schema.StringAttribute{
 				Optional:    true,
-				Description: "Type of database: postgres, mysql, mariadb, or mongo. Required when backup_type is 'database'.",
+				Description: "Type of database: postgres, mysql, mariadb, mongo, or web-server. Required when backup_type is 'database'.",
 				Validators: []validator.String{
-					stringvalidator.OneOf("postgres", "mysql", "mariadb", "mongo"),
+					stringvalidator.OneOf("postgres", "mysql", "mariadb", "mongo", "web-server"),
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -127,6 +129,10 @@ func (r *BackupResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Computed:    true,
 				Default:     int64default.StaticInt64(30),
 				Description: "Number of recent backups to keep (older ones are deleted).",
+			},
+			"metadata": schema.StringAttribute{
+				Optional:    true,
+				Description: "Optional metadata for the backup (JSON string). Stored as-is by the API.",
 			},
 		},
 	}
@@ -187,6 +193,16 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		Database:        plan.Database.ValueString(),
 		KeepLatestCount: int(plan.KeepLatestCount.ValueInt64()),
 		BackupType:      backupType,
+	}
+
+	// Pass metadata if provided
+	if !plan.Metadata.IsNull() && !plan.Metadata.IsUnknown() && plan.Metadata.ValueString() != "" {
+		meta, errStr := parseBackupMetadata(plan.Metadata.ValueString())
+		if errStr != "" {
+			resp.Diagnostics.AddError("Invalid metadata", errStr)
+			return
+		}
+		backup.Metadata = meta
 	}
 
 	switch backupType {
@@ -314,6 +330,16 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		KeepLatestCount: int(plan.KeepLatestCount.ValueInt64()),
 	}
 
+	// Pass metadata if provided
+	if !plan.Metadata.IsNull() && !plan.Metadata.IsUnknown() && plan.Metadata.ValueString() != "" {
+		meta, errStr := parseBackupMetadata(plan.Metadata.ValueString())
+		if errStr != "" {
+			resp.Diagnostics.AddError("Invalid metadata", errStr)
+			return
+		}
+		backup.Metadata = meta
+	}
+
 	// Set database type for the update API
 	if !plan.DatabaseType.IsNull() && plan.DatabaseType.ValueString() != "" {
 		backup.DatabaseType = plan.DatabaseType.ValueString()
@@ -366,4 +392,18 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *BackupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// parseBackupMetadata parses the metadata JSON string and returns it as an interface{}.
+// Returns nil if the string is empty.
+// Returns an error string (non-empty) if parsing fails.
+func parseBackupMetadata(metadataStr string) (interface{}, string) {
+	if metadataStr == "" {
+		return nil, ""
+	}
+	var meta interface{}
+	if err := json.Unmarshal([]byte(metadataStr), &meta); err != nil {
+		return nil, fmt.Sprintf("metadata must be valid JSON: %s", err.Error())
+	}
+	return meta, ""
 }

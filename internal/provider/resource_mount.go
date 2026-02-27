@@ -5,12 +5,14 @@ import (
 	"fmt"
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -55,6 +57,9 @@ func (r *MountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"type": schema.StringAttribute{
 				Required:    true,
 				Description: "Type of mount: bind, volume, or file.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("bind", "volume", "file"),
+				},
 			},
 			"host_path": schema.StringAttribute{
 				Optional:    true,
@@ -78,6 +83,9 @@ func (r *MountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Computed:    true,
 				Description: "Type of service: application, postgres, mysql, mariadb, mongo, redis, compose.",
 				Default:     stringdefault.StaticString("application"),
+				Validators: []validator.String{
+					stringvalidator.OneOf("application", "postgres", "mysql", "mariadb", "mongo", "redis", "compose"),
+				},
 			},
 			"file_path": schema.StringAttribute{
 				Optional:    true,

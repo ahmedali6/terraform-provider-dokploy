@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -66,12 +68,18 @@ func (r *PortResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed:    true,
 				Description: "Protocol: tcp or udp.",
 				Default:     stringdefault.StaticString("tcp"),
+				Validators: []validator.String{
+					stringvalidator.OneOf("tcp", "udp"),
+				},
 			},
 			"publish_mode": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "Publish mode: ingress or host.",
 				Default:     stringdefault.StaticString("ingress"),
+				Validators: []validator.String{
+					stringvalidator.OneOf("ingress", "host"),
+				},
 			},
 			"application_id": schema.StringAttribute{
 				Required:    true,

@@ -25,20 +25,21 @@ type GitlabProviderResource struct {
 }
 
 type GitlabProviderResourceModel struct {
-	ID             types.String `tfsdk:"id"`
-	GitProviderId  types.String `tfsdk:"git_provider_id"`
-	Name           types.String `tfsdk:"name"`
-	GitlabUrl      types.String `tfsdk:"gitlab_url"`
-	ApplicationId  types.String `tfsdk:"application_id"`
-	RedirectUri    types.String `tfsdk:"redirect_uri"`
-	Secret         types.String `tfsdk:"secret"`
-	AccessToken    types.String `tfsdk:"access_token"`
-	RefreshToken   types.String `tfsdk:"refresh_token"`
-	GroupName      types.String `tfsdk:"group_name"`
-	ExpiresAt      types.Int64  `tfsdk:"expires_at"`
-	AuthId         types.String `tfsdk:"auth_id"`
-	OrganizationID types.String `tfsdk:"organization_id"`
-	CreatedAt      types.String `tfsdk:"created_at"`
+	ID                types.String `tfsdk:"id"`
+	GitProviderId     types.String `tfsdk:"git_provider_id"`
+	Name              types.String `tfsdk:"name"`
+	GitlabUrl         types.String `tfsdk:"gitlab_url"`
+	GitlabInternalUrl types.String `tfsdk:"gitlab_internal_url"`
+	ApplicationId     types.String `tfsdk:"application_id"`
+	RedirectUri       types.String `tfsdk:"redirect_uri"`
+	Secret            types.String `tfsdk:"secret"`
+	AccessToken       types.String `tfsdk:"access_token"`
+	RefreshToken      types.String `tfsdk:"refresh_token"`
+	GroupName         types.String `tfsdk:"group_name"`
+	ExpiresAt         types.Int64  `tfsdk:"expires_at"`
+	AuthId            types.String `tfsdk:"auth_id"`
+	OrganizationID    types.String `tfsdk:"organization_id"`
+	CreatedAt         types.String `tfsdk:"created_at"`
 }
 
 func (r *GitlabProviderResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -70,6 +71,10 @@ func (r *GitlabProviderResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"gitlab_url": schema.StringAttribute{
 				Required:    true,
 				Description: "The GitLab instance URL (e.g., https://gitlab.com).",
+			},
+			"gitlab_internal_url": schema.StringAttribute{
+				Optional:    true,
+				Description: "The internal GitLab URL (for self-hosted instances behind a reverse proxy).",
 			},
 			"application_id": schema.StringAttribute{
 				Optional:    true,
@@ -146,16 +151,17 @@ func (r *GitlabProviderResource) Create(ctx context.Context, req resource.Create
 	}
 
 	provider := client.GitlabProvider{
-		Name:          plan.Name.ValueString(),
-		GitlabUrl:     plan.GitlabUrl.ValueString(),
-		AuthId:        plan.AuthId.ValueString(),
-		ApplicationId: plan.ApplicationId.ValueString(),
-		RedirectUri:   plan.RedirectUri.ValueString(),
-		Secret:        plan.Secret.ValueString(),
-		AccessToken:   plan.AccessToken.ValueString(),
-		RefreshToken:  plan.RefreshToken.ValueString(),
-		GroupName:     plan.GroupName.ValueString(),
-		ExpiresAt:     plan.ExpiresAt.ValueInt64(),
+		Name:              plan.Name.ValueString(),
+		GitlabUrl:         plan.GitlabUrl.ValueString(),
+		GitlabInternalUrl: plan.GitlabInternalUrl.ValueString(),
+		AuthId:            plan.AuthId.ValueString(),
+		ApplicationId:     plan.ApplicationId.ValueString(),
+		RedirectUri:       plan.RedirectUri.ValueString(),
+		Secret:            plan.Secret.ValueString(),
+		AccessToken:       plan.AccessToken.ValueString(),
+		RefreshToken:      plan.RefreshToken.ValueString(),
+		GroupName:         plan.GroupName.ValueString(),
+		ExpiresAt:         plan.ExpiresAt.ValueInt64(),
 	}
 
 	created, err := r.client.CreateGitlabProvider(provider)
@@ -197,6 +203,9 @@ func (r *GitlabProviderResource) Read(ctx context.Context, req resource.ReadRequ
 	state.OrganizationID = types.StringValue(provider.OrganizationID)
 	state.CreatedAt = types.StringValue(provider.CreatedAt)
 
+	if provider.GitlabInternalUrl != "" {
+		state.GitlabInternalUrl = types.StringValue(provider.GitlabInternalUrl)
+	}
 	if provider.ApplicationId != "" {
 		state.ApplicationId = types.StringValue(provider.ApplicationId)
 	}
@@ -233,18 +242,19 @@ func (r *GitlabProviderResource) Update(ctx context.Context, req resource.Update
 	}
 
 	provider := client.GitlabProvider{
-		ID:            state.ID.ValueString(),
-		GitProviderId: state.GitProviderId.ValueString(),
-		Name:          plan.Name.ValueString(),
-		GitlabUrl:     plan.GitlabUrl.ValueString(),
-		ApplicationId: plan.ApplicationId.ValueString(),
-		RedirectUri:   plan.RedirectUri.ValueString(),
-		Secret:        plan.Secret.ValueString(),
-		AccessToken:   plan.AccessToken.ValueString(),
-		RefreshToken:  plan.RefreshToken.ValueString(),
-		GroupName:     plan.GroupName.ValueString(),
-		ExpiresAt:     plan.ExpiresAt.ValueInt64(),
-		AuthId:        plan.AuthId.ValueString(),
+		ID:                state.ID.ValueString(),
+		GitProviderId:     state.GitProviderId.ValueString(),
+		Name:              plan.Name.ValueString(),
+		GitlabUrl:         plan.GitlabUrl.ValueString(),
+		GitlabInternalUrl: plan.GitlabInternalUrl.ValueString(),
+		ApplicationId:     plan.ApplicationId.ValueString(),
+		RedirectUri:       plan.RedirectUri.ValueString(),
+		Secret:            plan.Secret.ValueString(),
+		AccessToken:       plan.AccessToken.ValueString(),
+		RefreshToken:      plan.RefreshToken.ValueString(),
+		GroupName:         plan.GroupName.ValueString(),
+		ExpiresAt:         plan.ExpiresAt.ValueInt64(),
+		AuthId:            plan.AuthId.ValueString(),
 	}
 
 	updated, err := r.client.UpdateGitlabProvider(provider)

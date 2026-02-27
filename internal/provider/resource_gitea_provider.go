@@ -29,6 +29,7 @@ type GiteaProviderResourceModel struct {
 	GitProviderId       types.String `tfsdk:"git_provider_id"`
 	Name                types.String `tfsdk:"name"`
 	GiteaUrl            types.String `tfsdk:"gitea_url"`
+	GiteaInternalUrl    types.String `tfsdk:"gitea_internal_url"`
 	RedirectUri         types.String `tfsdk:"redirect_uri"`
 	ClientId            types.String `tfsdk:"client_id"`
 	ClientSecret        types.String `tfsdk:"client_secret"`
@@ -72,6 +73,10 @@ func (r *GiteaProviderResource) Schema(_ context.Context, _ resource.SchemaReque
 			"gitea_url": schema.StringAttribute{
 				Required:    true,
 				Description: "The Gitea instance URL (e.g., https://gitea.example.com).",
+			},
+			"gitea_internal_url": schema.StringAttribute{
+				Optional:    true,
+				Description: "The internal Gitea URL (for self-hosted instances behind a reverse proxy).",
 			},
 			"redirect_uri": schema.StringAttribute{
 				Optional:    true,
@@ -159,6 +164,7 @@ func (r *GiteaProviderResource) Create(ctx context.Context, req resource.CreateR
 	provider := client.GiteaProvider{
 		Name:                plan.Name.ValueString(),
 		GiteaUrl:            plan.GiteaUrl.ValueString(),
+		GiteaInternalUrl:    plan.GiteaInternalUrl.ValueString(),
 		RedirectUri:         plan.RedirectUri.ValueString(),
 		ClientId:            plan.ClientId.ValueString(),
 		ClientSecret:        plan.ClientSecret.ValueString(),
@@ -213,6 +219,9 @@ func (r *GiteaProviderResource) Read(ctx context.Context, req resource.ReadReque
 	state.OrganizationID = types.StringValue(provider.OrganizationID)
 	state.CreatedAt = types.StringValue(provider.CreatedAt)
 
+	if provider.GiteaInternalUrl != "" {
+		state.GiteaInternalUrl = types.StringValue(provider.GiteaInternalUrl)
+	}
 	if provider.RedirectUri != "" {
 		state.RedirectUri = types.StringValue(provider.RedirectUri)
 	}
@@ -259,6 +268,7 @@ func (r *GiteaProviderResource) Update(ctx context.Context, req resource.UpdateR
 		GitProviderId:       state.GitProviderId.ValueString(),
 		Name:                plan.Name.ValueString(),
 		GiteaUrl:            plan.GiteaUrl.ValueString(),
+		GiteaInternalUrl:    plan.GiteaInternalUrl.ValueString(),
 		RedirectUri:         plan.RedirectUri.ValueString(),
 		ClientId:            plan.ClientId.ValueString(),
 		ClientSecret:        plan.ClientSecret.ValueString(),

@@ -315,6 +315,8 @@ func (r *VolumeBackupResource) Update(ctx context.Context, req resource.UpdateRe
 		Prefix:          plan.Prefix.ValueString(),
 		DestinationID:   plan.DestinationID.ValueString(),
 		CronExpression:  plan.CronExpression.ValueString(),
+		ServiceType:     state.ServiceType.ValueString(),
+		AppName:         state.AppName.ValueString(),
 		TurnOff:         plan.TurnOff.ValueBool(),
 		KeepLatestCount: int(plan.KeepLatestCount.ValueInt64()),
 		Enabled:         plan.Enabled.ValueBool(),
@@ -323,6 +325,31 @@ func (r *VolumeBackupResource) Update(ctx context.Context, req resource.UpdateRe
 	if !plan.ServiceName.IsNull() && plan.ServiceName.ValueString() != "" {
 		serviceName := plan.ServiceName.ValueString()
 		backup.ServiceName = &serviceName
+	}
+
+	// Pass the service ID in the correct field for the API
+	serviceID := state.ServiceID.ValueString()
+	switch state.ServiceType.ValueString() {
+	case "application":
+		backup.ApplicationID = &serviceID
+	case "postgres":
+		backup.PostgresID = &serviceID
+	case "mysql":
+		backup.MysqlID = &serviceID
+	case "mariadb":
+		backup.MariadbID = &serviceID
+	case "mongo":
+		backup.MongoID = &serviceID
+	case "redis":
+		backup.RedisID = &serviceID
+	case "compose":
+		backup.ComposeID = &serviceID
+	default:
+		resp.Diagnostics.AddError(
+			"Invalid service_type",
+			fmt.Sprintf("Unknown service_type %q. Must be one of: application, postgres, mysql, mariadb, mongo, redis, compose", state.ServiceType.ValueString()),
+		)
+		return
 	}
 
 	updated, err := r.client.UpdateVolumeBackup(backup)

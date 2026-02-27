@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
@@ -22,6 +23,11 @@ import (
 
 var _ resource.Resource = &ApplicationResource{}
 var _ resource.ResourceWithImportState = &ApplicationResource{}
+
+var (
+	memoryFormatRegex = regexp.MustCompile(`^\d+[bBkKmMgG]$`)
+	cpuFormatRegex    = regexp.MustCompile(`^\d+(\.\d+)?$`)
+)
 
 func NewApplicationResource() resource.Resource {
 	return &ApplicationResource{}
@@ -114,10 +120,10 @@ type ApplicationResourceModel struct {
 	// Runtime configuration
 	AutoDeploy        types.Bool   `tfsdk:"auto_deploy"`
 	Replicas          types.Int64  `tfsdk:"replicas"`
-	MemoryLimit       types.Int64  `tfsdk:"memory_limit"`
-	MemoryReservation types.Int64  `tfsdk:"memory_reservation"`
-	CpuLimit          types.Int64  `tfsdk:"cpu_limit"`
-	CpuReservation    types.Int64  `tfsdk:"cpu_reservation"`
+	MemoryLimit       types.String `tfsdk:"memory_limit"`
+	MemoryReservation types.String `tfsdk:"memory_reservation"`
+	CpuLimit          types.String `tfsdk:"cpu_limit"`
+	CpuReservation    types.String `tfsdk:"cpu_reservation"`
 	Command           types.String `tfsdk:"command"`
 	Args              types.String `tfsdk:"args"`
 
@@ -498,21 +504,45 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
-			"memory_limit": schema.Int64Attribute{
+			"memory_limit": schema.StringAttribute{
 				Optional:    true,
-				Description: "Memory limit in bytes. Example: 536870912 (512MB).",
+				Description: "Memory limit for the container (e.g., '512m', '1g').",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						memoryFormatRegex,
+						"must be a non-negative integer followed by a unit suffix (b, k, m, g), e.g. '512m', '1g', '256M'",
+					),
+				},
 			},
-			"memory_reservation": schema.Int64Attribute{
+			"memory_reservation": schema.StringAttribute{
 				Optional:    true,
-				Description: "Memory reservation (soft limit) in bytes.",
+				Description: "Memory reservation (soft limit) for the container (e.g., '256m').",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						memoryFormatRegex,
+						"must be a non-negative integer followed by a unit suffix (b, k, m, g), e.g. '256m', '512M'",
+					),
+				},
 			},
-			"cpu_limit": schema.Int64Attribute{
+			"cpu_limit": schema.StringAttribute{
 				Optional:    true,
-				Description: "CPU limit in nanocores. Example: 1000000000 (1 CPU).",
+				Description: "CPU limit for the container (e.g., '0.5', '1').",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						cpuFormatRegex,
+						"must be a valid decimal number representing CPU units, e.g. '0.5', '1', '1.5'",
+					),
+				},
 			},
-			"cpu_reservation": schema.Int64Attribute{
+			"cpu_reservation": schema.StringAttribute{
 				Optional:    true,
-				Description: "CPU reservation in nanocores.",
+				Description: "CPU reservation for the container (e.g., '0.25').",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						cpuFormatRegex,
+						"must be a valid decimal number representing CPU units, e.g. '0.25', '0.5'",
+					),
+				},
 			},
 			"command": schema.StringAttribute{
 				Optional:    true,
@@ -569,9 +599,9 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"preview_certificate_type": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Certificate type for preview deployments: letsencrypt, none.",
+				Description: "Certificate type for preview deployments: letsencrypt, none, or custom.",
 				Validators: []validator.String{
-					stringvalidator.OneOf("letsencrypt", "none"),
+					stringvalidator.OneOf("letsencrypt", "none", "custom"),
 				},
 			},
 			"preview_custom_cert_resolver": schema.StringAttribute{
@@ -984,16 +1014,16 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 		generalApp.Replicas = int(plan.Replicas.ValueInt64())
 	}
 	if !plan.MemoryLimit.IsNull() && !plan.MemoryLimit.IsUnknown() {
-		generalApp.MemoryLimit = json.Number(fmt.Sprintf("%d", plan.MemoryLimit.ValueInt64()))
+		generalApp.MemoryLimit = json.Number(plan.MemoryLimit.ValueString())
 	}
 	if !plan.MemoryReservation.IsNull() && !plan.MemoryReservation.IsUnknown() {
-		generalApp.MemoryReservation = json.Number(fmt.Sprintf("%d", plan.MemoryReservation.ValueInt64()))
+		generalApp.MemoryReservation = json.Number(plan.MemoryReservation.ValueString())
 	}
 	if !plan.CpuLimit.IsNull() && !plan.CpuLimit.IsUnknown() {
-		generalApp.CpuLimit = json.Number(fmt.Sprintf("%d", plan.CpuLimit.ValueInt64()))
+		generalApp.CpuLimit = json.Number(plan.CpuLimit.ValueString())
 	}
 	if !plan.CpuReservation.IsNull() && !plan.CpuReservation.IsUnknown() {
-		generalApp.CpuReservation = json.Number(fmt.Sprintf("%d", plan.CpuReservation.ValueInt64()))
+		generalApp.CpuReservation = json.Number(plan.CpuReservation.ValueString())
 	}
 	if !plan.Command.IsNull() && !plan.Command.IsUnknown() {
 		generalApp.Command = plan.Command.ValueString()
@@ -1710,16 +1740,13 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	state.RailpackVersion = types.StringValue(app.RailpackVersion)
 	state.IsStaticSpa = types.BoolValue(app.IsStaticSpa)
 
-	// Environment fields - only update if they were set in config
-	if !state.Env.IsNull() {
-		if app.Env != "" {
-			state.Env = types.StringValue(app.Env)
-		}
+	// Environment fields - update state whenever the field was previously set or the API
+	// returns a non-empty value. This correctly detects when env is cleared (API returns "").
+	if !state.Env.IsNull() || app.Env != "" {
+		state.Env = types.StringValue(app.Env)
 	}
-	if !state.BuildArgs.IsNull() {
-		if app.BuildArgs != "" {
-			state.BuildArgs = types.StringValue(app.BuildArgs)
-		}
+	if !state.BuildArgs.IsNull() || app.BuildArgs != "" {
+		state.BuildArgs = types.StringValue(app.BuildArgs)
 	}
 	state.CreateEnvFile = types.BoolValue(app.CreateEnvFile)
 
@@ -1729,24 +1756,16 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 		state.Replicas = types.Int64Value(int64(app.Replicas))
 	}
 	if app.MemoryLimit != "" {
-		if val, err := app.MemoryLimit.Int64(); err == nil {
-			state.MemoryLimit = types.Int64Value(val)
-		}
+		state.MemoryLimit = types.StringValue(string(app.MemoryLimit))
 	}
 	if app.MemoryReservation != "" {
-		if val, err := app.MemoryReservation.Int64(); err == nil {
-			state.MemoryReservation = types.Int64Value(val)
-		}
+		state.MemoryReservation = types.StringValue(string(app.MemoryReservation))
 	}
 	if app.CpuLimit != "" {
-		if val, err := app.CpuLimit.Int64(); err == nil {
-			state.CpuLimit = types.Int64Value(val)
-		}
+		state.CpuLimit = types.StringValue(string(app.CpuLimit))
 	}
 	if app.CpuReservation != "" {
-		if val, err := app.CpuReservation.Int64(); err == nil {
-			state.CpuReservation = types.Int64Value(val)
-		}
+		state.CpuReservation = types.StringValue(string(app.CpuReservation))
 	}
 	if app.Command != "" {
 		state.Command = types.StringValue(app.Command)

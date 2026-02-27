@@ -3,13 +3,15 @@ name: Tests
 
 # This GitHub action runs your tests for each pull request and push.
 # Optionally, you can turn it on using a schedule for regular testing.
-on:
+# 'on' is quoted to prevent YAML 1.1 parsers from treating it as boolean true.
+'on':
   pull_request:
     paths-ignore:
       - 'README.md'
   push:
     paths-ignore:
       - 'README.md'
+  workflow_dispatch:
 
 # Testing only needs permissions to read the repository contents.
 permissions:
