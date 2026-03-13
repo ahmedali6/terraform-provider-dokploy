@@ -2574,6 +2574,8 @@ func (c *DokployClient) UpdateApplicationEnv(appID string, updateFn func(envMap 
 		payload := map[string]interface{}{
 			"applicationId": appID,
 			"env":           newEnvStr,
+			"buildArgs":     "",
+			"buildSecrets":  "",
 		}
 		if createEnvFile != nil {
 			payload["createEnvFile"] = *createEnvFile
