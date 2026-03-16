@@ -7,6 +7,8 @@ import (
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var _ resource.Resource = &BackupResource{}
@@ -38,6 +41,7 @@ type BackupResourceModel struct {
 	DatabaseType    types.String `tfsdk:"database_type"`
 	ComposeID       types.String `tfsdk:"compose_id"`
 	ServiceName     types.String `tfsdk:"service_name"`
+	Metadata        types.Object `tfsdk:"metadata"`
 	Schedule        types.String `tfsdk:"schedule"`
 	Enabled         types.Bool   `tfsdk:"enabled"`
 	Prefix          types.String `tfsdk:"prefix"`
@@ -104,6 +108,21 @@ func (r *BackupResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:    true,
 				Description: "Name of the service within the compose to backup. Required when backup_type is 'compose'.",
 			},
+			"metadata": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Backup metadata by database type. For postgres compose backups, set metadata.postgres.database_user.",
+				Attributes: map[string]schema.Attribute{
+					"postgres": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"database_user": schema.StringAttribute{
+								Optional:    true,
+								Description: "Postgres database user for backup metadata.",
+							},
+						},
+					},
+				},
+			},
 			"schedule": schema.StringAttribute{
 				Required:    true,
 				Description: "Cron schedule for backups (e.g., '0 2 * * *' for daily at 2 AM).",
@@ -157,6 +176,8 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		backupType = "database"
 	}
 
+	postgresUser := resolvePostgresDatabaseUser(plan)
+
 	// Validate required fields based on backup_type
 	switch backupType {
 	case "database":
@@ -175,6 +196,14 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 		if plan.ServiceName.IsNull() || plan.ServiceName.ValueString() == "" {
 			resp.Diagnostics.AddError("Missing required field", "service_name is required when backup_type is 'compose'")
+			return
+		}
+		dbType := plan.DatabaseType.ValueString()
+		if dbType == "" {
+			dbType = "postgres"
+		}
+		if dbType == "postgres" && postgresUser == "" {
+			resp.Diagnostics.AddError("Missing required field", "metadata.postgres.database_user is required when backup_type is 'compose' and database_type is 'postgres'")
 			return
 		}
 	}
@@ -212,6 +241,13 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		} else {
 			backup.DatabaseType = "postgres"
 		}
+		if backup.DatabaseType == "postgres" {
+			backup.Metadata = map[string]interface{}{
+				"postgres": map[string]interface{}{
+					"databaseUser": postgresUser,
+				},
+			}
+		}
 	}
 
 	createdBackup, err := r.client.CreateBackup(backup)
@@ -230,6 +266,15 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	if createdBackup.ServiceName != "" {
 		plan.ServiceName = types.StringValue(createdBackup.ServiceName)
+	}
+	if createdBackup.Metadata != nil {
+		if postgresMeta, ok := createdBackup.Metadata["postgres"].(map[string]interface{}); ok {
+			if dbUser, ok := postgresMeta["databaseUser"].(string); ok && dbUser != "" {
+				metadataValue, metadataDiags := postgresMetadataObjectValue(dbUser)
+				resp.Diagnostics.Append(metadataDiags...)
+				plan.Metadata = metadataValue
+			}
+		}
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -285,6 +330,15 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 		if backup.ServiceName != "" {
 			state.ServiceName = types.StringValue(backup.ServiceName)
 		}
+		if backup.Metadata != nil {
+			if postgresMeta, ok := backup.Metadata["postgres"].(map[string]interface{}); ok {
+				if dbUser, ok := postgresMeta["databaseUser"].(string); ok && dbUser != "" {
+					metadataValue, metadataDiags := postgresMetadataObjectValue(dbUser)
+					resp.Diagnostics.Append(metadataDiags...)
+					state.Metadata = metadataValue
+				}
+			}
+		}
 	}
 
 	diags = resp.State.Set(ctx, state)
@@ -326,6 +380,27 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		backup.ServiceName = plan.ServiceName.ValueString()
 	}
 
+	postgresUser := resolvePostgresDatabaseUser(plan)
+
+	if backupType == "compose" && backup.DatabaseType == "postgres" {
+		if postgresUser == "" {
+			resp.Diagnostics.AddError("Missing required field", "metadata.postgres.database_user is required when backup_type is 'compose' and database_type is 'postgres'")
+			return
+		}
+	}
+
+	if backup.DatabaseType == "postgres" {
+		databaseUser := "postgres"
+		if backupType == "compose" {
+			databaseUser = postgresUser
+		}
+		backup.Metadata = map[string]interface{}{
+			"postgres": map[string]interface{}{
+				"databaseUser": databaseUser,
+			},
+		}
+	}
+
 	updatedBackup, err := r.client.UpdateBackup(backup)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating backup", err.Error())
@@ -340,6 +415,15 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	if updatedBackup.ServiceName != "" {
 		plan.ServiceName = types.StringValue(updatedBackup.ServiceName)
+	}
+	if updatedBackup.Metadata != nil {
+		if postgresMeta, ok := updatedBackup.Metadata["postgres"].(map[string]interface{}); ok {
+			if dbUser, ok := postgresMeta["databaseUser"].(string); ok && dbUser != "" {
+				metadataValue, metadataDiags := postgresMetadataObjectValue(dbUser)
+				resp.Diagnostics.Append(metadataDiags...)
+				plan.Metadata = metadataValue
+			}
+		}
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -366,4 +450,37 @@ func (r *BackupResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 func (r *BackupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func resolvePostgresDatabaseUser(plan BackupResourceModel) string {
+	if !plan.Metadata.IsNull() && !plan.Metadata.IsUnknown() {
+		if postgresAttr, exists := plan.Metadata.Attributes()["postgres"]; exists && !postgresAttr.IsNull() && !postgresAttr.IsUnknown() {
+			if postgresObj, ok := postgresAttr.(basetypes.ObjectValue); ok {
+				if dbUserAttr, exists := postgresObj.Attributes()["database_user"]; exists && !dbUserAttr.IsNull() && !dbUserAttr.IsUnknown() {
+					if dbUser, ok := dbUserAttr.(basetypes.StringValue); ok {
+						return dbUser.ValueString()
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+func postgresMetadataObjectValue(databaseUser string) (types.Object, diag.Diagnostics) {
+	postgresValue, diags := types.ObjectValue(
+		map[string]attr.Type{"database_user": types.StringType},
+		map[string]attr.Value{"database_user": types.StringValue(databaseUser)},
+	)
+	if diags.HasError() {
+		return types.ObjectNull(map[string]attr.Type{"postgres": types.ObjectType{AttrTypes: map[string]attr.Type{"database_user": types.StringType}}}), diags
+	}
+
+	metadataValue, metadataDiags := types.ObjectValue(
+		map[string]attr.Type{"postgres": types.ObjectType{AttrTypes: map[string]attr.Type{"database_user": types.StringType}}},
+		map[string]attr.Value{"postgres": postgresValue},
+	)
+	diags.Append(metadataDiags...)
+	return metadataValue, diags
 }

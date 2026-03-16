@@ -101,6 +101,57 @@ func TestAccBackupResource_Compose(t *testing.T) {
 	})
 }
 
+func TestAccBackupResource_ComposePostgresService(t *testing.T) {
+	host := os.Getenv("DOKPLOY_HOST")
+	apiKey := os.Getenv("DOKPLOY_API_KEY")
+
+	if host == "" || apiKey == "" {
+		t.Skip("DOKPLOY_HOST and DOKPLOY_API_KEY must be set for acceptance tests")
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBackupResourceConfig_ComposePostgresService(
+					"test-compose-pg-backup-project",
+					"test-compose-pg-backup-env",
+					"test-compose-pg-backup-dest",
+					"0 2 * * *",
+					true,
+					"compose-pg-backup",
+					"infisical",
+					"postgres",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "backup_type", "compose"),
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "database_type", "postgres"),
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "service_name", "postgres"),
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "database", "infisical"),
+				),
+			},
+			{
+				Config: testAccBackupResourceConfig_ComposePostgresService(
+					"test-compose-pg-backup-project",
+					"test-compose-pg-backup-env",
+					"test-compose-pg-backup-dest",
+					"0 3 * * *",
+					false,
+					"compose-pg-backup-updated",
+					"infisical",
+					"postgres",
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "schedule", "0 3 * * *"),
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "enabled", "false"),
+					resource.TestCheckResourceAttr("dokploy_backup.test_compose_pg", "prefix", "compose-pg-backup-updated"),
+				),
+			},
+		},
+	})
+}
+
 func testAccBackupResourceConfig_Database(projectName, envName, dbName, appName, dbDbName, dbUser, destName, schedule string, enabled bool, prefix string) string {
 	return fmt.Sprintf(`
 provider "dokploy" {
@@ -204,6 +255,11 @@ resource "dokploy_backup" "test_compose" {
   backup_type       = "compose"
   service_name      = "db"
   database_type     = "postgres"
+  metadata = {
+    postgres = {
+      database_user = "postgres"
+    }
+  }
   schedule          = "%s"
   enabled           = %t
   prefix            = "%s"
@@ -211,4 +267,67 @@ resource "dokploy_backup" "test_compose" {
   keep_latest_count = 10
 }
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, destName, schedule, enabled, prefix)
+}
+
+func testAccBackupResourceConfig_ComposePostgresService(projectName, envName, destName, schedule string, enabled bool, prefix, databaseName, serviceName string) string {
+	return fmt.Sprintf(`
+provider "dokploy" {
+  host    = "%s"
+  api_key = "%s"
+}
+
+resource "dokploy_project" "test_compose_pg" {
+  name        = "%s"
+  description = "Test project for compose postgres backup metadata"
+}
+
+resource "dokploy_environment" "test_compose_pg" {
+  project_id = dokploy_project.test_compose_pg.id
+  name       = "%s"
+}
+
+resource "dokploy_compose" "test_compose_pg" {
+  name           = "test-compose-pg-backup"
+  environment_id = dokploy_environment.test_compose_pg.id
+  source_type    = "raw"
+  compose_file_content = <<-EOT
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_DB: %s
+      POSTGRES_USER: %s
+EOT
+}
+
+resource "dokploy_destination" "test_compose_pg" {
+  name              = "%s"
+  storage_provider  = "s3"
+  access_key        = "test-access-key"
+  secret_access_key = "test-secret-key"
+  bucket            = "test-compose-pg-backups"
+  region            = "us-east-1"
+  endpoint          = "https://s3.amazonaws.com"
+}
+
+resource "dokploy_backup" "test_compose_pg" {
+  destination_id    = dokploy_destination.test_compose_pg.id
+  compose_id        = dokploy_compose.test_compose_pg.id
+  backup_type       = "compose"
+  service_name      = "%s"
+  database_type     = "postgres"
+  metadata = {
+    postgres = {
+      database_user = "%s"
+    }
+  }
+  schedule          = "%s"
+  enabled           = %t
+  prefix            = "%s"
+  database          = "%s"
+  keep_latest_count = 7
+}
+`, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, databaseName, databaseName, destName, serviceName, databaseName, schedule, enabled, prefix, databaseName)
 }
