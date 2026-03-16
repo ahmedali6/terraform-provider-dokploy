@@ -3592,22 +3592,23 @@ func (c *DokployClient) ListDestinations() ([]Destination, error) {
 
 // Backup represents a scheduled backup configuration.
 type Backup struct {
-	BackupID        string `json:"backupId"`
-	AppName         string `json:"appName"`
-	Schedule        string `json:"schedule"`
-	Enabled         bool   `json:"enabled"`
-	Database        string `json:"database"`
-	Prefix          string `json:"prefix"`
-	DestinationID   string `json:"destinationId"`
-	KeepLatestCount int    `json:"keepLatestCount"`
-	BackupType      string `json:"backupType"`   // "database" or "compose"
-	DatabaseType    string `json:"databaseType"` // "postgres", "mysql", "mariadb", "mongo"
-	PostgresID      string `json:"postgresId"`
-	MysqlID         string `json:"mysqlId"`
-	MariadbID       string `json:"mariadbId"`
-	MongoID         string `json:"mongoId"`
-	ComposeID       string `json:"composeId"`
-	ServiceName     string `json:"serviceName"`
+	BackupID        string                 `json:"backupId"`
+	AppName         string                 `json:"appName"`
+	Schedule        string                 `json:"schedule"`
+	Enabled         bool                   `json:"enabled"`
+	Database        string                 `json:"database"`
+	Prefix          string                 `json:"prefix"`
+	DestinationID   string                 `json:"destinationId"`
+	KeepLatestCount int                    `json:"keepLatestCount"`
+	BackupType      string                 `json:"backupType"`   // "database" or "compose"
+	DatabaseType    string                 `json:"databaseType"` // "postgres", "mysql", "mariadb", "mongo"
+	PostgresID      string                 `json:"postgresId"`
+	MysqlID         string                 `json:"mysqlId"`
+	MariadbID       string                 `json:"mariadbId"`
+	MongoID         string                 `json:"mongoId"`
+	ComposeID       string                 `json:"composeId"`
+	ServiceName     string                 `json:"serviceName"`
+	Metadata        map[string]interface{} `json:"metadata"`
 }
 
 func (c *DokployClient) CreateBackup(backup Backup) (*Backup, error) {
@@ -3619,6 +3620,9 @@ func (c *DokployClient) CreateBackup(backup Backup) (*Backup, error) {
 		"database":      backup.Database,
 		"backupType":    backup.BackupType,
 		"databaseType":  backup.DatabaseType,
+	}
+	if len(backup.Metadata) > 0 {
+		payload["metadata"] = backup.Metadata
 	}
 
 	if backup.KeepLatestCount > 0 {
@@ -3731,6 +3735,9 @@ func (c *DokployClient) UpdateBackup(backup Backup) (*Backup, error) {
 		"database":      backup.Database,
 		"databaseType":  backup.DatabaseType,
 		"serviceName":   backup.ServiceName,
+	}
+	if len(backup.Metadata) > 0 {
+		payload["metadata"] = backup.Metadata
 	}
 
 	if backup.KeepLatestCount > 0 {
