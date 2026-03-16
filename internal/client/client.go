@@ -1923,7 +1923,7 @@ func (c *DokployClient) DeleteCompose(id string) error {
 	payload := map[string]string{
 		"composeId": id,
 	}
-	_, err := c.doRequest("POST", "compose.remove", payload)
+	_, err := c.doRequest("POST", "compose.delete", payload)
 	return err
 }
 

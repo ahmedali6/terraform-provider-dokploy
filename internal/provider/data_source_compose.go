@@ -264,16 +264,17 @@ func (d *ComposeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Description: "Build path within the Gitea repository.",
 			},
 
-			// Environment
-			"env": schema.StringAttribute{
-				Computed:    true,
-				Description: "Environment variables in KEY=VALUE format.",
-			},
-
 			// Runtime configuration
 			"auto_deploy": schema.BoolAttribute{
 				Computed:    true,
 				Description: "Whether auto-deploy is enabled.",
+			},
+
+			// Environment
+			"env": schema.StringAttribute{
+				Computed:    true,
+				Sensitive:   true,
+				Description: "Environment variables in KEY=VALUE format.",
 			},
 
 			// Advanced configuration
@@ -454,6 +455,7 @@ func (d *ComposeDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	if comp.GiteaBuildPath != "" {
 		data.GiteaBuildPath = types.StringValue(comp.GiteaBuildPath)
 	}
+	// Environment - read from API (data source, may return masked values)
 	if comp.Env != "" {
 		data.Env = types.StringValue(comp.Env)
 	}
