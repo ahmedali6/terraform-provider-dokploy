@@ -1155,7 +1155,6 @@ func (c *DokployClient) ListApplicationsByEnvironment(environmentID string) ([]A
 // SaveBuildType configures the build type settings for an application.
 // Corresponds to application.saveBuildType endpoint.
 func (c *DokployClient) SaveBuildType(appID string, buildType string, dockerfile string, dockerContextPath string, dockerBuildStage string, publishDirectory string) error {
-	// The API requires all these fields to be present as strings (even if empty)
 	payload := map[string]interface{}{
 		"applicationId":     appID,
 		"buildType":         buildType,
@@ -1163,6 +1162,8 @@ func (c *DokployClient) SaveBuildType(appID string, buildType string, dockerfile
 		"dockerContextPath": dockerContextPath,
 		"dockerBuildStage":  dockerBuildStage,
 		"publishDirectory":  publishDirectory,
+		"herokuVersion":     "",
+		"railpackVersion":   "",
 	}
 
 	_, err := c.doRequest("POST", "application.saveBuildType", payload)
