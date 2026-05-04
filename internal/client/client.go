@@ -1469,13 +1469,8 @@ func (c *DokployClient) SaveEnvironment(input SaveEnvironmentInput) error {
 
 	// env can be empty string, so we always include it
 	payload["env"] = input.Env
-
-	if input.BuildArgs != "" {
-		payload["buildArgs"] = input.BuildArgs
-	}
-	if input.BuildSecrets != "" {
-		payload["buildSecrets"] = input.BuildSecrets
-	}
+	payload["buildArgs"] = input.BuildArgs
+	payload["buildSecrets"] = input.BuildSecrets
 	if input.CreateEnvFile != nil {
 		payload["createEnvFile"] = *input.CreateEnvFile
 	}
