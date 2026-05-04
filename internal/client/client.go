@@ -1254,6 +1254,8 @@ func (c *DokployClient) SaveGithubProvider(input SaveGithubProviderInput) error 
 	}
 	if input.BuildPath != "" {
 		payload["buildPath"] = input.BuildPath
+	} else {
+		payload["buildPath"] = "/"
 	}
 	if len(input.WatchPaths) > 0 {
 		payload["watchPaths"] = input.WatchPaths
