@@ -1471,13 +1471,9 @@ func updatePlanFromApplication(plan *ApplicationResourceModel, app *client.Appli
 		}
 	}
 
-	// Parse WatchPaths from JSON string to types.List
-	if app.WatchPaths != "" {
-		var watchPaths []string
-		if err := json.Unmarshal([]byte(app.WatchPaths), &watchPaths); err == nil {
-			if listVal, diag := types.ListValueFrom(context.Background(), types.StringType, watchPaths); !diag.HasError() {
-				plan.WatchPaths = listVal
-			}
+	if len(app.WatchPaths) > 0 {
+		if listVal, diag := types.ListValueFrom(context.Background(), types.StringType, app.WatchPaths); !diag.HasError() {
+			plan.WatchPaths = listVal
 		}
 	}
 
@@ -1572,13 +1568,9 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 	}
 	state.EnableSubmodules = types.BoolValue(app.EnableSubmodules)
 	state.CleanCache = types.BoolValue(app.CleanCache)
-	// Parse WatchPaths from JSON string to types.List
-	if app.WatchPaths != "" {
-		var watchPaths []string
-		if err := json.Unmarshal([]byte(app.WatchPaths), &watchPaths); err == nil {
-			if listVal, diags := types.ListValueFrom(context.Background(), types.StringType, watchPaths); !diags.HasError() {
-				state.WatchPaths = listVal
-			}
+	if len(app.WatchPaths) > 0 {
+		if listVal, diags := types.ListValueFrom(context.Background(), types.StringType, app.WatchPaths); !diags.HasError() {
+			state.WatchPaths = listVal
 		}
 	}
 

@@ -730,8 +730,8 @@ type Application struct {
 	CustomGitSSHKeyId  string `json:"customGitSSHKeyId"`
 	CustomGitBuildPath string `json:"customGitBuildPath"`
 	EnableSubmodules   bool   `json:"enableSubmodules"`
-	WatchPaths         string `json:"watchPaths"` // Stored as JSON array string
-	CleanCache         bool   `json:"cleanCache"`
+	WatchPaths         []string `json:"watchPaths"`
+	CleanCache         bool     `json:"cleanCache"`
 
 	// GitHub provider settings (application.saveGithubProvider)
 	Repository  string `json:"repository"`
