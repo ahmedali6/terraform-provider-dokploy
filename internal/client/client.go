@@ -15,6 +15,39 @@ import (
 // ErrNotFound is returned when a resource is not found (404).
 var ErrNotFound = errors.New("resource not found")
 
+// StringOrStringSlice unmarshals a JSON value that may be either a string
+// or an array of strings; arrays are joined with single spaces. Marshal
+// always emits a string.
+type StringOrStringSlice string
+
+func (s *StringOrStringSlice) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		*s = ""
+		return nil
+	}
+	if data[0] == '"' {
+		var str string
+		if err := json.Unmarshal(data, &str); err != nil {
+			return err
+		}
+		*s = StringOrStringSlice(str)
+		return nil
+	}
+	if data[0] == '[' {
+		var arr []string
+		if err := json.Unmarshal(data, &arr); err != nil {
+			return err
+		}
+		*s = StringOrStringSlice(strings.Join(arr, " "))
+		return nil
+	}
+	return fmt.Errorf("StringOrStringSlice: cannot decode %s", data)
+}
+
+func (s StringOrStringSlice) MarshalJSON() ([]byte, error) {
+	return json.Marshal(string(s))
+}
+
 // DokployClient holds connection details.
 type DokployClient struct {
 	BaseURL    string
@@ -797,9 +830,9 @@ type Application struct {
 	MemoryReservation json.Number `json:"memoryReservation"`
 	CpuLimit          json.Number `json:"cpuLimit"`
 	CpuReservation    json.Number `json:"cpuReservation"`
-	Command           string      `json:"command"`
-	Args              string      `json:"args"`
-	EntryPoint        string      `json:"entrypoint"`
+	Command           string              `json:"command"`
+	Args              StringOrStringSlice `json:"args"`
+	EntryPoint        string              `json:"entrypoint"`
 
 	// Docker Swarm configuration
 	HealthCheckSwarm     map[string]interface{}   `json:"healthCheckSwarm"`

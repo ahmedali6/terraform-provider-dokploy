@@ -999,7 +999,7 @@ func (r *ApplicationResource) updateGeneralSettings(appID string, plan *Applicat
 		generalApp.Command = plan.Command.ValueString()
 	}
 	if !plan.Args.IsNull() && !plan.Args.IsUnknown() {
-		generalApp.Args = plan.Args.ValueString()
+		generalApp.Args = client.StringOrStringSlice(plan.Args.ValueString())
 	}
 
 	// Preview deployments
@@ -1744,7 +1744,7 @@ func readApplicationIntoState(state *ApplicationResourceModel, app *client.Appli
 		state.Command = types.StringValue(app.Command)
 	}
 	if app.Args != "" {
-		state.Args = types.StringValue(app.Args)
+		state.Args = types.StringValue(string(app.Args))
 	}
 
 	// Preview deployments - always set computed fields
