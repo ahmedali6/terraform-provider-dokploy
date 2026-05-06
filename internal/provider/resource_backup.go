@@ -43,6 +43,7 @@ type BackupResourceModel struct {
 	Prefix          types.String `tfsdk:"prefix"`
 	Database        types.String `tfsdk:"database"`
 	KeepLatestCount types.Int64  `tfsdk:"keep_latest_count"`
+	Metadata        types.Map    `tfsdk:"metadata"`
 }
 
 func (r *BackupResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -128,6 +129,11 @@ func (r *BackupResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Default:     int64default.StaticInt64(30),
 				Description: "Number of recent backups to keep (older ones are deleted).",
 			},
+			"metadata": schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "Metadata for the backup configuration as key-value pairs.",
+			},
 		},
 	}
 }
@@ -187,6 +193,17 @@ func (r *BackupResource) Create(ctx context.Context, req resource.CreateRequest,
 		Database:        plan.Database.ValueString(),
 		KeepLatestCount: int(plan.KeepLatestCount.ValueInt64()),
 		BackupType:      backupType,
+	}
+
+	// Set metadata if provided
+	if !plan.Metadata.IsNull() && !plan.Metadata.IsUnknown() {
+		metadataMap := make(map[string]string)
+		diags = plan.Metadata.ElementsAs(ctx, &metadataMap, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		backup.Metadata = metadataMap
 	}
 
 	switch backupType {
@@ -287,6 +304,14 @@ func (r *BackupResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 
+	// Read metadata if present
+	if backup.Metadata != nil && len(backup.Metadata) > 0 {
+		state.Metadata, diags = types.MapValueFrom(ctx, types.StringType, backup.Metadata)
+		resp.Diagnostics.Append(diags...)
+	} else {
+		state.Metadata = types.MapNull(types.StringType)
+	}
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -312,6 +337,17 @@ func (r *BackupResource) Update(ctx context.Context, req resource.UpdateRequest,
 		Prefix:          plan.Prefix.ValueString(),
 		Database:        plan.Database.ValueString(),
 		KeepLatestCount: int(plan.KeepLatestCount.ValueInt64()),
+	}
+
+	// Set metadata if provided
+	if !plan.Metadata.IsNull() && !plan.Metadata.IsUnknown() {
+		metadataMap := make(map[string]string)
+		diags = plan.Metadata.ElementsAs(ctx, &metadataMap, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		backup.Metadata = metadataMap
 	}
 
 	// Set database type for the update API
