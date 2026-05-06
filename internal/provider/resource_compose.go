@@ -331,7 +331,11 @@ func (r *ComposeResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			// Environment
 			"env": schema.StringAttribute{
 				Optional:    true,
+				Sensitive:   true,
 				Description: "Environment variables in KEY=VALUE format, one per line.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 
 			// Runtime configuration
@@ -446,6 +450,7 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 		Name:              plan.Name.ValueString(),
 		EnvironmentID:     plan.EnvironmentID.ValueString(),
 		ComposeFile:       plan.ComposeFileContent.ValueString(),
+		Env:               plan.Env.ValueString(),
 		SourceType:        plan.SourceType.ValueString(),
 		CustomGitUrl:      plan.CustomGitUrl.ValueString(),
 		CustomGitBranch:   plan.CustomGitBranch.ValueString(),
@@ -596,6 +601,13 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	environmentChanged := !plan.EnvironmentID.Equal(state.EnvironmentID)
 
+	// Preserve existing env value when plan value is unknown.
+	// This can happen with sensitive values during apply.
+	effectiveEnv := plan.Env
+	if plan.Env.IsUnknown() {
+		effectiveEnv = state.Env
+	}
+
 	// Check if environment_id changed - use compose.move API
 	if environmentChanged {
 		movedComp, err := r.client.MoveCompose(plan.ID.ValueString(), plan.EnvironmentID.ValueString())
@@ -607,6 +619,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		// Check if only environment_id changed - if so, skip the update call
 		onlyEnvironmentChanged := plan.Name.Equal(state.Name) &&
 			plan.ComposeFileContent.Equal(state.ComposeFileContent) &&
+			plan.Env.Equal(state.Env) &&
 			plan.SourceType.Equal(state.SourceType) &&
 			plan.CustomGitUrl.Equal(state.CustomGitUrl) &&
 			plan.CustomGitBranch.Equal(state.CustomGitBranch) &&
@@ -624,6 +637,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		if onlyEnvironmentChanged {
 			// MoveCompose is sufficient; use returned data to update state
 			readComposeIntoState(ctx, &plan, movedComp, &resp.Diagnostics)
+			plan.Env = effectiveEnv
 			diags = resp.State.Set(ctx, plan)
 			resp.Diagnostics.Append(diags...)
 			return
@@ -645,6 +659,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 		Name:              plan.Name.ValueString(),
 		EnvironmentID:     plan.EnvironmentID.ValueString(),
 		ComposeFile:       plan.ComposeFileContent.ValueString(),
+		Env:               effectiveEnv.ValueString(),
 		SourceType:        plan.SourceType.ValueString(),
 		CustomGitUrl:      plan.CustomGitUrl.ValueString(),
 		CustomGitBranch:   plan.CustomGitBranch.ValueString(),
@@ -730,6 +745,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	readComposeIntoState(ctx, &plan, updatedComp, &resp.Diagnostics)
+	plan.Env = effectiveEnv
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -911,8 +927,11 @@ func readComposeIntoState(ctx context.Context, state *ComposeResourceModel, comp
 		state.GiteaBuildPath = types.StringValue(comp.GiteaBuildPath)
 	}
 
-	// Environment
-	if comp.Env != "" {
+	// Environment - Do NOT read from API.
+	// The compose.one endpoint may return masked values for env,
+	// which would cause a perpetual diff. We keep the planned/config
+	// value in state instead (env is marked as sensitive).
+	if state.Env.IsUnknown() && comp.Env != "" {
 		state.Env = types.StringValue(comp.Env)
 	}
 

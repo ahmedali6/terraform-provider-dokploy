@@ -267,6 +267,7 @@ func (d *ComposeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 			// Environment
 			"env": schema.StringAttribute{
 				Computed:    true,
+				Sensitive:   true,
 				Description: "Environment variables in KEY=VALUE format.",
 			},
 
