@@ -4683,20 +4683,21 @@ type GitlabProviderListItem struct {
 
 // GitlabProvider is the full structure used for create/update operations.
 type GitlabProvider struct {
-	ID             string `json:"gitlabId"`
-	GitProviderId  string `json:"gitProviderId"`
-	Name           string `json:"name"`
-	GitlabUrl      string `json:"gitlabUrl"`
-	ApplicationId  string `json:"applicationId"`
-	RedirectUri    string `json:"redirectUri"`
-	Secret         string `json:"secret"`
-	AccessToken    string `json:"accessToken"`
-	RefreshToken   string `json:"refreshToken"`
-	GroupName      string `json:"groupName"`
-	ExpiresAt      int64  `json:"expiresAt"`
-	AuthId         string `json:"authId"`
-	OrganizationID string `json:"organizationId"`
-	CreatedAt      string `json:"createdAt"`
+	ID             string          `json:"gitlabId"`
+	GitProviderId  string          `json:"gitProviderId"`
+	GitProvider    GitProviderInfo `json:"gitProvider"`
+	Name           string          `json:"name"`
+	GitlabUrl      string          `json:"gitlabUrl"`
+	ApplicationId  string          `json:"applicationId"`
+	RedirectUri    string          `json:"redirectUri"`
+	Secret         string          `json:"secret"`
+	AccessToken    string          `json:"accessToken"`
+	RefreshToken   string          `json:"refreshToken"`
+	GroupName      string          `json:"groupName"`
+	ExpiresAt      int64           `json:"expiresAt"`
+	AuthId         string          `json:"authId"`
+	OrganizationID string          `json:"organizationId"`
+	CreatedAt      string          `json:"createdAt"`
 }
 
 func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabProvider, error) {
@@ -4736,6 +4737,9 @@ func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabPr
 	// Try to unmarshal the response
 	var result GitlabProvider
 	if err := json.Unmarshal(resp, &result); err == nil && result.ID != "" {
+		if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+			result.GitProviderId = result.GitProvider.GitProviderId
+		}
 		return &result, nil
 	}
 
@@ -4744,6 +4748,9 @@ func (c *DokployClient) CreateGitlabProvider(provider GitlabProvider) (*GitlabPr
 		GitlabProvider GitlabProvider `json:"gitlab"`
 	}
 	if err := json.Unmarshal(resp, &wrapper); err == nil && wrapper.GitlabProvider.ID != "" {
+		if wrapper.GitlabProvider.GitProviderId == "" && wrapper.GitlabProvider.GitProvider.GitProviderId != "" {
+			wrapper.GitlabProvider.GitProviderId = wrapper.GitlabProvider.GitProvider.GitProviderId
+		}
 		return &wrapper.GitlabProvider, nil
 	}
 
@@ -4775,6 +4782,20 @@ func (c *DokployClient) GetGitlabProvider(id string) (*GitlabProvider, error) {
 	var result GitlabProvider
 	if err := json.Unmarshal(resp, &result); err != nil {
 		return nil, err
+	}
+	// The gitlab.one endpoint may return gitProviderId nested in a gitProvider object.
+	// Fall back to the nested value when the top-level field is empty.
+	if result.GitProviderId == "" && result.GitProvider.GitProviderId != "" {
+		result.GitProviderId = result.GitProvider.GitProviderId
+	}
+	if result.Name == "" && result.GitProvider.Name != "" {
+		result.Name = result.GitProvider.Name
+	}
+	if result.OrganizationID == "" && result.GitProvider.OrganizationID != "" {
+		result.OrganizationID = result.GitProvider.OrganizationID
+	}
+	if result.CreatedAt == "" && result.GitProvider.CreatedAt != "" {
+		result.CreatedAt = result.GitProvider.CreatedAt
 	}
 	return &result, nil
 }
@@ -4840,35 +4861,69 @@ func (c *DokployClient) DeleteGitProvider(gitProviderId string) error {
 	return err
 }
 
+// gitProviderAllItem represents the response from gitProvider.getAll.
+type gitProviderAllItem struct {
+	GitProviderId  string `json:"gitProviderId"`
+	Name           string `json:"name"`
+	ProviderType   string `json:"providerType"`
+	OrganizationID string `json:"organizationId"`
+	CreatedAt      string `json:"createdAt"`
+	Gitlab         *struct {
+		GitlabId  string `json:"gitlabId"`
+		GitlabUrl string `json:"gitlabUrl"`
+	} `json:"gitlab"`
+}
+
 func (c *DokployClient) ListGitlabProviders() ([]GitlabProviderListItem, error) {
-	resp, err := c.doRequest("GET", "gitlab.gitlabProviders", nil)
+	resp, err := c.doRequest("GET", "gitProvider.getAll", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Try direct array response
+	var allProviders []gitProviderAllItem
+	if err := json.Unmarshal(resp, &allProviders); err != nil {
+		// Fallback to old endpoint
+		resp2, err2 := c.doRequest("GET", "gitlab.gitlabProviders", nil)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to parse gitlab providers response: %w", err)
+		}
+		var providers []GitlabProviderListItem
+		if err := json.Unmarshal(resp2, &providers); err == nil {
+			return providers, nil
+		}
+		var wrapper struct {
+			Providers []GitlabProviderListItem `json:"providers"`
+		}
+		if err := json.Unmarshal(resp2, &wrapper); err == nil {
+			return wrapper.Providers, nil
+		}
+		var wrapper2 struct {
+			Providers []GitlabProviderListItem `json:"gitlabProviders"`
+		}
+		if err := json.Unmarshal(resp2, &wrapper2); err == nil {
+			return wrapper2.Providers, nil
+		}
+		return nil, fmt.Errorf("failed to parse gitlab providers response: %w", err)
+	}
+
 	var providers []GitlabProviderListItem
-	if err := json.Unmarshal(resp, &providers); err == nil {
-		return providers, nil
+	for _, p := range allProviders {
+		if p.ProviderType == "gitlab" && p.Gitlab != nil {
+			providers = append(providers, GitlabProviderListItem{
+				ID: p.Gitlab.GitlabId,
+				GitProvider: GitProviderInfo{
+					GitProviderId:  p.GitProviderId,
+					Name:           p.Name,
+					ProviderType:   p.ProviderType,
+					OrganizationID: p.OrganizationID,
+					CreatedAt:      p.CreatedAt,
+				},
+				GitlabUrl: p.Gitlab.GitlabUrl,
+			})
+		}
 	}
 
-	// Try wrapper format
-	var wrapper struct {
-		Providers []GitlabProviderListItem `json:"providers"`
-	}
-	if err := json.Unmarshal(resp, &wrapper); err == nil {
-		return wrapper.Providers, nil
-	}
-
-	// Try gitlabProviders key
-	var wrapper2 struct {
-		Providers []GitlabProviderListItem `json:"gitlabProviders"`
-	}
-	if err := json.Unmarshal(resp, &wrapper2); err == nil {
-		return wrapper2.Providers, nil
-	}
-
-	return nil, fmt.Errorf("failed to parse gitlab providers response")
+	return providers, nil
 }
 
 // --- Bitbucket Provider ---
