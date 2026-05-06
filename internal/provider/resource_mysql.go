@@ -356,6 +356,7 @@ func (r *MySQLResource) ImportState(ctx context.Context, req resource.ImportStat
 func (r *MySQLResource) mapMySQLToState(state *MySQLResourceModel, mysql *client.MySQL) {
 	state.ID = types.StringValue(mysql.MySQLID)
 	state.Name = types.StringValue(mysql.Name)
+	state.AppName = types.StringValue(mysql.AppName)
 	state.EnvironmentID = types.StringValue(mysql.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mysql.ApplicationStatus)
 	state.DatabaseName = types.StringValue(mysql.DatabaseName)

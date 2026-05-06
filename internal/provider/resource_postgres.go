@@ -348,6 +348,7 @@ func (r *PostgresResource) ImportState(ctx context.Context, req resource.ImportS
 func (r *PostgresResource) mapPostgresToState(state *PostgresResourceModel, postgres *client.Postgres) {
 	state.ID = types.StringValue(postgres.PostgresID)
 	state.Name = types.StringValue(postgres.Name)
+	state.AppName = types.StringValue(postgres.AppName)
 	state.EnvironmentID = types.StringValue(postgres.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(postgres.ApplicationStatus)
 	state.DatabaseName = types.StringValue(postgres.DatabaseName)

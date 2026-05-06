@@ -356,6 +356,7 @@ func (r *MariaDBResource) ImportState(ctx context.Context, req resource.ImportSt
 func (r *MariaDBResource) mapMariaDBToState(state *MariaDBResourceModel, mariadb *client.MariaDB) {
 	state.ID = types.StringValue(mariadb.MariaDBID)
 	state.Name = types.StringValue(mariadb.Name)
+	state.AppName = types.StringValue(mariadb.AppName)
 	state.EnvironmentID = types.StringValue(mariadb.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mariadb.ApplicationStatus)
 	state.DatabaseName = types.StringValue(mariadb.DatabaseName)

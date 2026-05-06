@@ -349,6 +349,7 @@ func (r *MongoDBResource) ImportState(ctx context.Context, req resource.ImportSt
 func (r *MongoDBResource) mapMongoDBToState(state *MongoDBResourceModel, mongo *client.MongoDB) {
 	state.ID = types.StringValue(mongo.MongoID)
 	state.Name = types.StringValue(mongo.Name)
+	state.AppName = types.StringValue(mongo.AppName)
 	state.EnvironmentID = types.StringValue(mongo.EnvironmentID)
 	state.ApplicationStatus = types.StringValue(mongo.ApplicationStatus)
 	state.DatabaseUser = types.StringValue(mongo.DatabaseUser)
