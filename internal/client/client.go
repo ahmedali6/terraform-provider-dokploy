@@ -1429,17 +1429,12 @@ type SaveEnvironmentInput struct {
 func (c *DokployClient) SaveEnvironment(input SaveEnvironmentInput) error {
 	payload := map[string]interface{}{
 		"applicationId": input.ApplicationID,
+		"env":           input.Env,
+		"buildArgs":     input.BuildArgs,
+		"buildSecrets":  input.BuildSecrets,
+		"createEnvFile": false,
 	}
 
-	// env can be empty string, so we always include it
-	payload["env"] = input.Env
-
-	if input.BuildArgs != "" {
-		payload["buildArgs"] = input.BuildArgs
-	}
-	if input.BuildSecrets != "" {
-		payload["buildSecrets"] = input.BuildSecrets
-	}
 	if input.CreateEnvFile != nil {
 		payload["createEnvFile"] = *input.CreateEnvFile
 	}
@@ -2574,6 +2569,9 @@ func (c *DokployClient) UpdateApplicationEnv(appID string, updateFn func(envMap 
 		payload := map[string]interface{}{
 			"applicationId": appID,
 			"env":           newEnvStr,
+			"buildArgs":     "",
+			"buildSecrets":  "",
+			"createEnvFile": false,
 		}
 		if createEnvFile != nil {
 			payload["createEnvFile"] = *createEnvFile
