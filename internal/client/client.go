@@ -1260,8 +1260,13 @@ func (c *DokployClient) SaveGithubProvider(input SaveGithubProviderInput) error 
 	if input.Branch != "" {
 		payload["branch"] = input.Branch
 	}
+	// buildPath is nonoptional in recent Dokploy Zod schemas, so always
+	// include it. Default to "/" when unset -- matches the UI's behaviour
+	// for an app without a custom build path.
 	if input.BuildPath != "" {
 		payload["buildPath"] = input.BuildPath
+	} else {
+		payload["buildPath"] = "/"
 	}
 	if len(input.WatchPaths) > 0 {
 		payload["watchPaths"] = input.WatchPaths
