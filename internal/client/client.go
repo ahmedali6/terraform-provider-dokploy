@@ -762,11 +762,11 @@ type Application struct {
 	SourceType string `json:"sourceType"` // github, gitlab, bitbucket, git, docker, drop
 
 	// Git provider settings (application.saveGitProvider)
-	CustomGitUrl       string `json:"customGitUrl"`
-	CustomGitBranch    string `json:"customGitBranch"`
-	CustomGitSSHKeyId  string `json:"customGitSSHKeyId"`
-	CustomGitBuildPath string `json:"customGitBuildPath"`
-	EnableSubmodules   bool   `json:"enableSubmodules"`
+	CustomGitUrl       string   `json:"customGitUrl"`
+	CustomGitBranch    string   `json:"customGitBranch"`
+	CustomGitSSHKeyId  string   `json:"customGitSSHKeyId"`
+	CustomGitBuildPath string   `json:"customGitBuildPath"`
+	EnableSubmodules   bool     `json:"enableSubmodules"`
 	WatchPaths         []string `json:"watchPaths"`
 	CleanCache         bool     `json:"cleanCache"`
 
@@ -828,12 +828,12 @@ type Application struct {
 
 	// Runtime configuration (application.update)
 	// Note: The API accepts and returns memoryLimit/memoryReservation/cpuLimit/cpuReservation as strings
-	AutoDeploy        bool        `json:"autoDeploy"`
-	Replicas          int         `json:"replicas"`
-	MemoryLimit       json.Number `json:"memoryLimit"`
-	MemoryReservation json.Number `json:"memoryReservation"`
-	CpuLimit          json.Number `json:"cpuLimit"`
-	CpuReservation    json.Number `json:"cpuReservation"`
+	AutoDeploy        bool                `json:"autoDeploy"`
+	Replicas          int                 `json:"replicas"`
+	MemoryLimit       json.Number         `json:"memoryLimit"`
+	MemoryReservation json.Number         `json:"memoryReservation"`
+	CpuLimit          json.Number         `json:"cpuLimit"`
+	CpuReservation    json.Number         `json:"cpuReservation"`
 	Command           string              `json:"command"`
 	Args              StringOrStringSlice `json:"args"`
 	EntryPoint        string              `json:"entrypoint"`
