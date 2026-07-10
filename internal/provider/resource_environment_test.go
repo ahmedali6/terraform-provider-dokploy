@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -8,6 +9,54 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
+
+// TestIsAdoptableEnvironmentCreateError covers the Create error-recovery
+// matcher: Dokploy auto-creates a "production" environment for every new
+// project, so an explicit create of an environment named "production"
+// always fails with this reserved-name message (not "already exists" or
+// "duplicate"). Without this case, adoption never fires for the one
+// scenario that matters for a same-apply tenant onboarding.
+func TestIsAdoptableEnvironmentCreateError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "nil error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "already exists",
+			err:  errors.New("environment already exists"),
+			want: true,
+		},
+		{
+			name: "duplicate",
+			err:  errors.New("duplicate environment name"),
+			want: true,
+		},
+		{
+			name: "reserved production name (mixed case, matches Dokploy's exact message)",
+			err:  errors.New("Bad Request: You cannot create a environment with the name 'production'"),
+			want: true,
+		},
+		{
+			name: "unrelated error",
+			err:  errors.New("connection refused"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isAdoptableEnvironmentCreateError(tt.err); got != tt.want {
+				t.Errorf("isAdoptableEnvironmentCreateError(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestAccEnvironmentResource(t *testing.T) {
 	host := os.Getenv("DOKPLOY_HOST")
