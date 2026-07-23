@@ -45,7 +45,7 @@ terraform {
 }
 
 provider "dokploy" {
-  host    = "https://your-dokploy-instance.com"
+  host    = "https://your-dokploy-instance.com/api"
   api_key = var.dokploy_api_key  # Store securely!
 }
 ```
@@ -144,7 +144,7 @@ First, create a `.env` file from the template:
 ```shell
 cp .env.example .env
 # Edit .env and set:
-# - DOKPLOY_HOST=https://your-instance.com
+# - DOKPLOY_HOST=https://your-instance.com/api
 # - DOKPLOY_API_KEY=your-api-key
 # - TF_ACC=1
 ```
