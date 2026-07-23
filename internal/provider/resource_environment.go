@@ -84,8 +84,9 @@ func (r *EnvironmentResource) Create(ctx context.Context, req resource.CreateReq
 
 	env, err := r.client.CreateEnvironment(plan.ProjectID.ValueString(), plan.Name.ValueString(), plan.Description.ValueString())
 	if err != nil {
-		// Handle "Already exists" logic
-		if strings.Contains(strings.ToLower(err.Error()), "already exists") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		// Handle "already exists" / "duplicate" / reserved-name rejection by adopting
+		// the environment Dokploy already created.
+		if isAdoptableEnvironmentCreateError(err) {
 			// Fetch project to find the existing environment
 			project, pErr := r.client.GetProject(plan.ProjectID.ValueString())
 			if pErr != nil {
@@ -119,6 +120,25 @@ func (r *EnvironmentResource) Create(ctx context.Context, req resource.CreateReq
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
+}
+
+// isAdoptableEnvironmentCreateError reports whether a CreateEnvironment error
+// means the environment already exists server-side and should be adopted
+// (by looking it up on the parent project) rather than surfaced as a create
+// failure. This covers the generic "already exists"/"duplicate" API
+// responses, as well as Dokploy's reserved-name rejection: Dokploy
+// auto-creates a "production" environment for every new project, so an
+// explicit create of an environment named "production" always 400s with
+// "You cannot create a environment with the name 'production'" even though
+// no duplicate/already-exists wording is used.
+func isAdoptableEnvironmentCreateError(err error) bool {
+	if err == nil {
+		return false
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "already exists") ||
+		strings.Contains(lower, "duplicate") ||
+		strings.Contains(lower, "cannot create a environment with the name 'production'")
 }
 
 func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
