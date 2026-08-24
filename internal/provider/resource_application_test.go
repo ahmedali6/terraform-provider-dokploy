@@ -79,6 +79,9 @@ func TestAccApplicationResourceWithGit(t *testing.T) {
 					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-git-app"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "custom_git_url", "https://github.com/dokploy/dokploy"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "custom_git_branch", "main"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.#", "2"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.0", "src/"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.1", "package.json"),
 					resource.TestCheckResourceAttrSet("dokploy_application.test", "id"),
 				),
 			},
@@ -88,6 +91,9 @@ func TestAccApplicationResourceWithGit(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("dokploy_application.test", "name", "test-git-app-updated"),
 					resource.TestCheckResourceAttr("dokploy_application.test", "custom_git_branch", "canary"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.#", "2"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.0", "src/"),
+					resource.TestCheckResourceAttr("dokploy_application.test", "watch_paths.1", "package.json"),
 				),
 			},
 			// ImportState testing
@@ -157,6 +163,7 @@ resource "dokploy_application" "test" {
   build_type         = "nixpacks"
   custom_git_url     = "https://github.com/dokploy/dokploy"
   custom_git_branch  = "%s"
+  watch_paths        = ["src/", "package.json"]
 }
 `, os.Getenv("DOKPLOY_HOST"), os.Getenv("DOKPLOY_API_KEY"), projectName, envName, appName, branch)
 }

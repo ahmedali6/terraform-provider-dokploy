@@ -8,11 +8,13 @@ import (
 
 	"github.com/ahmedali6/terraform-provider-dokploy/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -256,8 +258,10 @@ func (r *ApplicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"watch_paths": schema.ListAttribute{
 				Optional:    true,
+				Computed:    true,
 				ElementType: types.StringType,
 				Description: "Paths to watch for changes to trigger deployments.",
+				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
 			},
 
 			// GitHub provider settings (source_type = "github")
@@ -1144,6 +1148,15 @@ func (r *ApplicationResource) saveBuildType(appID string, plan *ApplicationResou
 func (r *ApplicationResource) saveSourceProvider(appID string, plan *ApplicationResourceModel) error {
 	sourceType := plan.SourceType.ValueString()
 
+	var watchPaths []string
+	if !plan.WatchPaths.IsNull() && !plan.WatchPaths.IsUnknown() {
+		for _, v := range plan.WatchPaths.Elements() {
+			if s, ok := v.(types.String); ok {
+				watchPaths = append(watchPaths, s.ValueString())
+			}
+		}
+	}
+
 	switch sourceType {
 	case "github":
 		// Use github_* fields if set, otherwise fall back to legacy fields for backward compatibility
@@ -1172,6 +1185,7 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 			GithubId:         plan.GithubId.ValueString(),
 			EnableSubmodules: plan.EnableSubmodules.ValueBool(),
 			TriggerType:      plan.TriggerType.ValueString(),
+			WatchPaths:       watchPaths,
 		}
 		return r.client.SaveGithubProvider(input)
 
@@ -1186,6 +1200,7 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 			GitlabBuildPath:     plan.GitlabBuildPath.ValueString(),
 			GitlabPathNamespace: plan.GitlabPathNamespace.ValueString(),
 			EnableSubmodules:    plan.EnableSubmodules.ValueBool(),
+			WatchPaths:          watchPaths,
 		}
 		return r.client.SaveGitlabProvider(input)
 
@@ -1198,6 +1213,7 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 			BitbucketBranch:     plan.BitbucketBranch.ValueString(),
 			BitbucketBuildPath:  plan.BitbucketBuildPath.ValueString(),
 			EnableSubmodules:    plan.EnableSubmodules.ValueBool(),
+			WatchPaths:          watchPaths,
 		}
 		return r.client.SaveBitbucketProvider(input)
 
@@ -1210,6 +1226,7 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 			GiteaBranch:      plan.GiteaBranch.ValueString(),
 			GiteaBuildPath:   plan.GiteaBuildPath.ValueString(),
 			EnableSubmodules: plan.EnableSubmodules.ValueBool(),
+			WatchPaths:       watchPaths,
 		}
 		return r.client.SaveGiteaProvider(input)
 
@@ -1221,6 +1238,7 @@ func (r *ApplicationResource) saveSourceProvider(appID string, plan *Application
 			CustomGitBuildPath: plan.CustomGitBuildPath.ValueString(),
 			CustomGitSSHKeyId:  plan.CustomGitSSHKeyID.ValueString(),
 			EnableSubmodules:   plan.EnableSubmodules.ValueBool(),
+			WatchPaths:         watchPaths,
 		}
 		return r.client.SaveGitProvider(input)
 
