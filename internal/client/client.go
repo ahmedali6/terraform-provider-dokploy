@@ -1025,7 +1025,7 @@ func (c *DokployClient) DeleteApplication(id string) error {
 	payload := map[string]string{
 		"applicationId": id,
 	}
-	_, err := c.doRequest("POST", "application.remove", payload)
+	_, err := c.doRequest("POST", "application.delete", payload)
 	return err
 }
 
