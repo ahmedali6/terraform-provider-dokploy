@@ -240,8 +240,12 @@ func (r *PostgresResource) Create(ctx context.Context, req resource.CreateReques
 		}
 	}
 
-	// Set state from created resource
+	// Set state from created resource, preserving the configured app_name
+	// prefix (Dokploy appends a random suffix server-side; Read/Update already
+	// preserve the prefix for the same reason).
+	prefix := plan.AppName
 	r.mapPostgresToState(&plan, createdPostgres)
+	plan.AppName = prefix
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
