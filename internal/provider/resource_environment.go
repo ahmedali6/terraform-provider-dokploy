@@ -213,6 +213,11 @@ func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteReq
 
 	err := r.client.DeleteEnvironment(state.ID.ValueString())
 	if err != nil {
+		// Dokploy refuses to delete the default ("production") environment;
+		// it is removed together with the project.
+		if strings.Contains(err.Error(), "cannot delete the default environment") {
+			return
+		}
 		resp.Diagnostics.AddError("Error deleting environment", err.Error())
 		return
 	}
