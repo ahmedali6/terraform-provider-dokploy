@@ -1437,22 +1437,18 @@ type SaveDockerProviderInput struct {
 
 // SaveDockerProvider configures the docker provider settings for an application.
 // Corresponds to application.saveDockerProvider endpoint.
+// Current Dokploy validates username/password/registryUrl as present (non-optional
+// in the zod schema); empty string is accepted and means Docker Hub anonymous.
 func (c *DokployClient) SaveDockerProvider(input SaveDockerProviderInput) error {
 	payload := map[string]interface{}{
 		"applicationId": input.ApplicationID,
+		"username":      input.Username,
+		"password":      input.Password,
+		"registryUrl":   input.RegistryUrl,
 	}
 
 	if input.DockerImage != "" {
 		payload["dockerImage"] = input.DockerImage
-	}
-	if input.Username != "" {
-		payload["username"] = input.Username
-	}
-	if input.Password != "" {
-		payload["password"] = input.Password
-	}
-	if input.RegistryUrl != "" {
-		payload["registryUrl"] = input.RegistryUrl
 	}
 	if input.RegistryId != "" {
 		payload["registryId"] = input.RegistryId
